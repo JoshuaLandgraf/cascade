@@ -38,6 +38,7 @@
 #include "verilog/analyze/module_info.h"
 #include "verilog/ast/ast.h"
 #include "verilog/ast/visitors/builder.h"
+#include "verilog/build/ast_builder.h"
 
 namespace cascade {
 
@@ -82,8 +83,11 @@ class TextMangle : public Builder {
     Statement* build(const SaveStatement* ss) override;
     Statement* build(const YieldStatement* ys) override;
 
+    Statement* build_task();
     RangeExpression* get_table_range(const Identifier* r, const Identifier* i);
 };
+
+using StmtBuilder = AstBuilder<Statement>;
 
 template <typename T>
 inline TextMangle<T>::TextMangle(const ModuleDeclaration* md, const VarTable<T>* vt) : Builder() {
@@ -158,7 +162,7 @@ inline Statement* TextMangle<T>::build(const NonblockingAssign* na) {
   auto* next = lhs->clone();
   next->purge_ids();
   next->push_back_ids(new Id(lhs->front_ids()->get_readable_sid() + "_next"));
-  res->push_back_stmts(new NonblockingAssign(
+  res->push_back_stmts(new BlockingAssign(
     na->clone_ctrl(),
     next,
     na->get_rhs()->clone()
@@ -168,7 +172,7 @@ inline Statement* TextMangle<T>::build(const NonblockingAssign* na) {
   auto* re = get_table_range(r,lhs);
   //const size_t begin_index = Evaluate().get_value(re->get_lower()).to_uint();
   //const size_t end_index   = Evaluate().get_value(re->get_upper()).to_uint() + 1;
-  res->push_back_stmts(new NonblockingAssign(
+  res->push_back_stmts(new BlockingAssign(
     new Identifier(
       new Id("__update_queue"),
       re
@@ -179,48 +183,93 @@ inline Statement* TextMangle<T>::build(const NonblockingAssign* na) {
       new Number(Bits(1, 0))
     )
   ));
+  res->push_back_stmts(new NonblockingAssign(
+    new Identifier("__there_are_updates"),
+	new Number(Bits(1, 1))
+  ));
 
   return res;
 }
 
 template <typename T>
-inline Statement* TextMangle<T>::build(const DebugStatement* ds) {
-  return new BlockingAssign(
-    new Identifier("__task_id"), 
-    new Number(Bits(16, task_index_++))
+inline Statement* TextMangle<T>::build_task() {
+  size_t task_id = task_index_++;
+  auto sb = new SeqBlock();
+  
+  auto then_sb = new SeqBlock();
+  then_sb->push_back_stmts(
+    new BlockingAssign(
+      new Identifier("__there_were_tasks"),
+      new Number(Bits(1, 1))
+    )
   );
+  then_sb->push_back_stmts(
+    new BlockingAssign(
+      new Identifier("__task_id"),
+      new Number(Bits(16, task_id))
+    )
+  );
+  then_sb->push_back_stmts(
+    new ConditionalStatement(
+      new Identifier("__continue"),
+      new NonblockingAssign(
+        new Identifier(
+          new Id("__task_mask"),
+          new Number(Bits(16, task_id))
+        ),
+        new Number(Bits(1, 1))
+      ),
+      new SeqBlock()
+    )
+  );
+  
+  sb->push_back_stmts(
+    new ConditionalStatement(
+      new BinaryExpression(
+        new UnaryExpression(
+          UnaryExpression::Op::BANG,
+          new Identifier("__there_were_tasks")
+        ),
+        BinaryExpression::Op::AAMP,
+        new UnaryExpression(
+          UnaryExpression::Op::BANG,
+          new Identifier(
+            new Id("__task_mask"),
+            new Number(Bits(16, task_id))
+          )
+        )
+      ),
+      then_sb,
+      new SeqBlock()
+    )
+  );
+  
+  return sb;
+}
+
+template <typename T>
+inline Statement* TextMangle<T>::build(const DebugStatement* ds) {
+  return build_task();
 }
 
 template <typename T>
 inline Statement* TextMangle<T>::build(const FflushStatement* fs) {
-  return new BlockingAssign(
-    new Identifier("__task_id"), 
-    new Number(Bits(16, task_index_++))
-  );
+  return build_task();
 }
 
 template <typename T>
 inline Statement* TextMangle<T>::build(const FinishStatement* fs) {
-  return new BlockingAssign(
-    new Identifier("__task_id"), 
-    new Number(Bits(16, task_index_++))
-  );
+  return build_task();
 }
 
 template <typename T>
 inline Statement* TextMangle<T>::build(const FseekStatement* fs) {
-  return new BlockingAssign(
-    new Identifier("__task_id"), 
-    new Number(Bits(16, task_index_++))
-  );
+  return build_task();
 }
 
 template <typename T>
 inline Statement* TextMangle<T>::build(const GetStatement* gs) {
-  return new BlockingAssign(
-    new Identifier("__task_id"), 
-    new Number(Bits(16, task_index_++))
-  );
+  return build_task();
   
   // In progress
   const auto* id = gs->get_var();
@@ -245,10 +294,7 @@ inline Statement* TextMangle<T>::build(const GetStatement* gs) {
 
 template <typename T>
 inline Statement* TextMangle<T>::build(const PutStatement* ps) {
-  return new BlockingAssign(
-    new Identifier("__task_id"), 
-    new Number(Bits(16, task_index_++))
-  );
+  return build_task();
   
   // In progress
   SystemTaskEnableStatement *st = ps->clone();
@@ -258,34 +304,22 @@ inline Statement* TextMangle<T>::build(const PutStatement* ps) {
 
 template <typename T>
 inline Statement* TextMangle<T>::build(const RestartStatement* rs) {
-  return new BlockingAssign(
-    new Identifier("__task_id"), 
-    new Number(Bits(16, task_index_++))
-  );
+  return build_task();
 }
 
 template <typename T>
 inline Statement* TextMangle<T>::build(const RetargetStatement* rs) {
-  return new BlockingAssign(
-    new Identifier("__task_id"), 
-    new Number(Bits(16, task_index_++))
-  );
+  return build_task();
 }
 
 template <typename T>
 inline Statement* TextMangle<T>::build(const SaveStatement* ss) {
-  return new BlockingAssign(
-    new Identifier("__task_id"), 
-    new Number(Bits(16, task_index_++))
-  );
+  return build_task();
 }
 
 template <typename T>
 inline Statement* TextMangle<T>::build(const YieldStatement* ys) {
-  return new BlockingAssign(
-    new Identifier("__task_id"), 
-    new Number(Bits(16, task_index_++))
-  );
+  return build_task();
 }
 
 template <typename T>
