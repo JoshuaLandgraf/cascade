@@ -83,7 +83,7 @@ class TextMangle : public Builder {
     Statement* build(const SaveStatement* ss) override;
     Statement* build(const YieldStatement* ys) override;
 
-    Statement* build_task();
+    Statement* build_task(const Expression* fd_ = nullptr, const Identifier* id_ = nullptr);
     RangeExpression* get_table_range(const Identifier* r, const Identifier* i);
 };
 
@@ -185,14 +185,14 @@ inline Statement* TextMangle<T>::build(const NonblockingAssign* na) {
   ));
   res->push_back_stmts(new NonblockingAssign(
     new Identifier("__there_are_updates"),
-	new Number(Bits(1, 1))
+    new Number(Bits(1, 1))
   ));
 
   return res;
 }
 
 template <typename T>
-inline Statement* TextMangle<T>::build_task() {
+inline Statement* TextMangle<T>::build_task(const Expression* fd_, const Identifier* id_) {
   size_t task_id = task_index_++;
   auto sb = new SeqBlock();
   
@@ -209,6 +209,22 @@ inline Statement* TextMangle<T>::build_task() {
       new Number(Bits(16, task_id))
     )
   );
+  if (fd_ != nullptr) {
+    then_sb->push_back_stmts(
+      new ConditionalStatement(
+        new BinaryExpression(
+          new Identifier(new Id("__read"), new Number(Bits(16, vt_->feof_index()))),
+          BinaryExpression::Op::AAMP,
+          new Identifier(new Id("__in"), new Number(Bits(16, 0)))
+        ),
+        new NonblockingAssign(
+          new Identifier(new Id("__task_eof"), new Number(Bits(16, task_id))),
+          new Number(Bits(1, 1))
+        ),
+        new SeqBlock()
+      )
+    );
+  }
   then_sb->push_back_stmts(
     new ConditionalStatement(
       new Identifier("__continue"),
@@ -244,6 +260,43 @@ inline Statement* TextMangle<T>::build_task() {
     )
   );
   
+  if (fd_ != nullptr) {
+    sb->push_back_stmts(
+      new BlockingAssign(
+        new Identifier("__eof_addr"),
+        fd_->clone()
+      )
+    );
+    sb->push_back_stmts(
+      new BlockingAssign(
+        new Identifier(new Id("__feof"), new Identifier("__eof_addr")),
+        new Identifier(new Id("__task_eof"), new Number(Bits(16, task_id)))
+      )
+    );
+  }
+  if (id_ != nullptr) {
+    const auto* r = Resolve().get_resolution(id_);
+    size_t var_index = vt_->index(r);
+    size_t task_index = vt_->index_task(id_);
+    size_t bits_per_element = std::max(Evaluate().get_width(r), Evaluate().get_width(id_));
+    size_t words_per_element = (bits_per_element + (8*sizeof(T)) - 1) / (8*sizeof(T));
+    
+    for (size_t e = 0; e < words_per_element; ++e) {
+      sb->push_back_stmts(
+        new BlockingAssign(
+          new Identifier(
+            new Id("__var"),
+            new Number(Bits(16, var_index++))
+          ),
+          new Identifier(
+            new Id("__var_reg"),
+            new Number(Bits(16, task_index++))
+          )
+        )
+      );
+    }
+  }
+  
   return sb;
 }
 
@@ -254,7 +307,7 @@ inline Statement* TextMangle<T>::build(const DebugStatement* ds) {
 
 template <typename T>
 inline Statement* TextMangle<T>::build(const FflushStatement* fs) {
-  return build_task();
+  return build_task(fs->get_fd());
 }
 
 template <typename T>
@@ -264,12 +317,12 @@ inline Statement* TextMangle<T>::build(const FinishStatement* fs) {
 
 template <typename T>
 inline Statement* TextMangle<T>::build(const FseekStatement* fs) {
-  return build_task();
+  return build_task(fs->get_fd());
 }
 
 template <typename T>
 inline Statement* TextMangle<T>::build(const GetStatement* gs) {
-  return build_task();
+  return build_task(gs->get_fd(), gs->get_var());
   
   // In progress
   const auto* id = gs->get_var();
@@ -294,7 +347,7 @@ inline Statement* TextMangle<T>::build(const GetStatement* gs) {
 
 template <typename T>
 inline Statement* TextMangle<T>::build(const PutStatement* ps) {
-  return build_task();
+  return build_task(ps->get_fd());
   
   // In progress
   SystemTaskEnableStatement *st = ps->clone();

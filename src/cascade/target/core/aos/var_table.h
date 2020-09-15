@@ -71,18 +71,24 @@ class VarTable {
 
     // Inserts an element into the table.
     void insert(const Identifier* id);
+    void insert_task(const Identifier* id);
     // Returns the number of words in the var table.
     size_t size() const;
+    size_t size_task() const;
 
     // Returns a pointer to an element in the table or end on failure
     const_iterator find(const Identifier* id) const;
+    const_iterator find_task(const Identifier* id) const;
     // Returns a pointer to the beginning of the table
     const_iterator begin() const;
+    const_iterator begin_task() const;
     // Returns a pointer ot the end of the table
     const_iterator end() const;
+    const_iterator end_task() const;
 
     // Returns the starting index of this identifier.
     size_t index(const Identifier* id) const;
+    size_t index_task(const Identifier* id) const;
     // Returns the address of the there_are_updates control variable.
     size_t there_are_updates_index() const;
     // Returns the address of the apply_update control variable.
@@ -111,6 +117,7 @@ class VarTable {
     void read_var(const Identifier* id) const; 
     // Writes the value of a scalar variable
     void write_var(const Identifier* id, const Bits& val);
+    void write_task(const Identifier* id, const Bits& val);
     // Writes the value of an array variable
     void write_var(const Identifier* id, const Vector<Bits>& val);
 
@@ -119,7 +126,9 @@ class VarTable {
     Write write_;
 
     size_t next_index_;
+    size_t next_task_index_;
     std::unordered_map<const Identifier*, const Row> vtable_;
+    std::unordered_map<const Identifier*, const Row> ttable_;
 
     constexpr size_t bits_per_word() const;
 };
@@ -165,6 +174,26 @@ inline void VarTable<T>::insert(const Identifier* id) {
 }
 
 template <typename T>
+inline void VarTable<T>::insert_task(const Identifier* id) {
+  if (id == nullptr) return;
+  assert(find_task(id) == end_task());
+  
+  Row row;
+  row.begin = next_index_;
+  row.elements = 1;
+  for (auto d : Evaluate().get_arity(id)) {
+    row.elements *= d;
+  }
+  const auto* r = Resolve().get_resolution(id);
+  assert(r != nullptr);
+  row.bits_per_element = std::max(Evaluate().get_width(r), Evaluate().get_width(id));
+  row.words_per_element = (row.bits_per_element + bits_per_word() - 1) / bits_per_word();
+
+  ttable_.insert(std::make_pair(id, row));
+  next_index_ += (row.elements * row.words_per_element);
+}
+
+template <typename T>
 inline size_t VarTable<T>::size() const {
   return next_index_;
 }
@@ -175,8 +204,18 @@ inline typename VarTable<T>::const_iterator VarTable<T>::find(const Identifier* 
 }
 
 template <typename T>
+inline typename VarTable<T>::const_iterator VarTable<T>::find_task(const Identifier* id) const {
+  return ttable_.find(id);
+}
+
+template <typename T>
 inline typename VarTable<T>::const_iterator VarTable<T>::begin() const {
   return vtable_.begin();
+}
+
+template <typename T>
+inline typename VarTable<T>::const_iterator VarTable<T>::begin_task() const {
+  return ttable_.begin();
 }
 
 template <typename T>
@@ -185,9 +224,21 @@ inline typename VarTable<T>::const_iterator VarTable<T>::end() const {
 }
 
 template <typename T>
+inline typename VarTable<T>::const_iterator VarTable<T>::end_task() const {
+  return ttable_.end();
+}
+
+template <typename T>
 inline size_t VarTable<T>::index(const Identifier* id) const {
   const auto itr = vtable_.find(id);
   assert(itr != vtable_.end());
+  return itr->second.begin;
+}
+
+template <typename T>
+inline size_t VarTable<T>::index_task(const Identifier* id) const {
+  const auto itr = ttable_.find(id);
+  assert(itr != ttable_.end());
   return itr->second.begin;
 }
 
@@ -269,6 +320,20 @@ template <typename T>
 inline void VarTable<T>::write_var(const Identifier* id, const Bits& val) {
   const auto itr = vtable_.find(id);
   assert(itr != vtable_.end());
+  assert(itr->second.elements == 1);
+
+  auto idx = itr->second.begin;
+  for (size_t j = 0; j < itr->second.words_per_element; ++j) {
+    const volatile auto word = val.read_word<T>(j);
+    write_(idx, word);
+    ++idx;
+  }
+}
+
+template <typename T>
+inline void VarTable<T>::write_task(const Identifier* id, const Bits& val) {
+  const auto itr = ttable_.find(id);
+  assert(itr != ttable_.end());
   assert(itr->second.elements == 1);
 
   auto idx = itr->second.begin;

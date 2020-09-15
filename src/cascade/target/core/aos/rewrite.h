@@ -144,7 +144,7 @@ inline std::string Rewrite<T>::run(const ModuleDeclaration* md, size_t slot, con
     }
       
     // Generate a state machine for this block and remove it from the AST.
-	pl_sb->push_back_stmts(tcs->get_stmt()->clone());
+    pl_sb->push_back_stmts(tcs->get_stmt()->clone());
     i = res->purge_items(i);
   }
 
@@ -206,6 +206,7 @@ inline void Rewrite<T>::emit_state_machine_vars(ModuleDeclaration* res) {
   ib << "reg[15:0] __task_id;" << std::endl;
   ib << "reg[15:0] __task_id_reg;" << std::endl;
   ib << "reg[255:0] __task_mask;" << std::endl;
+  ib << "reg[255:0] __task_eof;" << std::endl;
   
   res->push_back_items(ib.begin(), ib.end());
 }
@@ -239,10 +240,13 @@ inline void Rewrite<T>::emit_var_table(ModuleDeclaration* res, const VarTable<T>
   ItemBuilder ib;
 
   // Emit the var table 
-  const auto var_arity = std::max(static_cast<size_t>(16), vt->size());
+  const auto var_arity = vt->size();
   ib << "reg[63:0] __var[" << (var_arity-1) << ":0];" << std::endl;
+  ib << "reg[63:0] __var_reg[" << (var_arity-1) << ":0];" << std::endl;
   // Emit the feof table
-  ib << "reg __feof[63:0];" << std::endl;
+  ib << "reg[63:0] __feof;" << std::endl;
+  ib << "reg[63:0] __feof_reg = 0;" << std::endl;
+  ib << "reg[5:0] __eof_addr;" << std::endl;
 
   res->push_back_items(ib.begin(), ib.end());
 }
@@ -496,22 +500,30 @@ inline void Rewrite<T>::emit_logic(ModuleDeclaration* res, const ModuleDeclarati
   std::map<size_t, typename VarTable<T>::const_iterator> vars, vvars;
   for (auto t = vt->begin(), te = vt->end(); t != te; ++t) {
     if (info.is_input(t->first) || info.is_stateful(t->first)) {
-      if (info.is_volatile(t->first)) {
-        vvars[t->second.begin] = t;
-      } else {
-        vars[t->second.begin] = t;
-      }
+      vars[t->second.begin] = t;
     }
+  }
+  
+  // Index variables in the task variable table
+  std::map<size_t, typename VarTable<T>::const_iterator> task_vars;
+  for (auto t = vt->begin_task(), te = vt->end_task(); t != te; ++t) {
+    task_vars[t->second.begin] = t;
   }
 
   ItemBuilder ib;
-  ib << "always @(posedge __clk) begin" << std::endl;
+  ib << "always @(posedge __clk) begin: __compute_block" << std::endl;
   
   // Init values
+  ib << "integer i0;" << std::endl;
+  ib << "for (i0 = " << (vt->debug_index()+1) << "; ";
+  ib << "i0 < " << vt->size() << "; i0 = i0 + 1) begin" << std::endl;
+  ib << "__var[i0] = __var_reg[i0];" << std::endl;
+  ib << "end" << std::endl;
   ib << "__there_are_updates <= 0;" << std::endl;
   ib << "__there_were_tasks = 0;" << std::endl;
   ib << "__update_queue = 0;" << std::endl;
   ib << "__task_id = 0;" << std::endl;
+  ib << "__feof = __feof_reg;" << std::endl;
   
   // Emit program logic
   ib << sb << std::endl;
@@ -530,26 +542,30 @@ inline void Rewrite<T>::emit_logic(ModuleDeclaration* res, const ModuleDeclarati
 
     for (size_t i = 0, ie = itr->second.elements; i < ie; ++i) {
       for (size_t j = 0, je = itr->second.words_per_element; j < je; ++j) {
-        ib << "__var[" << idx << "]";
+        ib << "__var_reg[" << idx << "]";
         if (w < 64) ib << "[" << (w-1) << ":0]";
         ib << " <= ";
         /*if ((clock != nullptr) && (itr->first == clock)) {
           ib << "__open_loop_tick ? (~" << itr->first->front_ids()->get_readable_sid() << ") : ";
         }*/
-        ib << "__read[" << idx << "] ? __in : ";
+        if (!info.is_volatile(itr->first)) {
+          ib << "__read[" << idx << "] ? __in : ";
+        }
         if (info.is_stateful(itr->first)) {
           auto* id = new Identifier(itr->first->front_ids()->get_readable_sid() + "_next");
           emit_subscript(id, i, ie, arity);
           emit_slice(id, w, j);
-          ib << "(__apply_updates && __update_queue[" << idx << "]) ? " << id << " : ";
+          ib << "__apply_updates ? ";
+          ib << "(__update_queue[" << idx << "] ? " << id << " : __var[" << idx << "]) : ";
           delete id;
         }
-        ib << "__var[" << idx << "];" << std::endl;
+        ib << "__var_reg[" << idx << "];" << std::endl;
         ++idx;
       }
     }
   }
-  for (const auto& v : vvars) {
+  
+  for (const auto& v : task_vars) {
     const auto itr = v.second;
     const auto arity = Evaluate().get_arity(itr->first);
     const auto w = itr->second.bits_per_element;
@@ -557,29 +573,25 @@ inline void Rewrite<T>::emit_logic(ModuleDeclaration* res, const ModuleDeclarati
 
     for (size_t i = 0, ie = itr->second.elements; i < ie; ++i) {
       for (size_t j = 0, je = itr->second.words_per_element; j < je; ++j) {
-        ib << "__var[" << idx << "]";
+        ib << "__var_reg[" << idx << "]";
         if (w < 64) ib << "[" << (w-1) << ":0]";
         ib << " <= ";
-        /*if ((clock != nullptr) && (itr->first == clock)) {
-          ib << "__open_loop_tick ? {63'd0,~" << itr->first->front_ids()->get_readable_sid() << "} : ";
-        }*/
-        if (info.is_stateful(itr->first)) {
-          auto* id = new Identifier(itr->first->front_ids()->get_readable_sid() + "_next");
-          emit_subscript(id, i, ie, arity);
-          emit_slice(id, w, j);
-          ib << "(__apply_updates && __update_queue[" << idx << "]) ? " << id << " : ";
-          delete id;
-        }
-        ib << "__var[" << idx << "];" << std::endl;
+        ib << "__read[" << idx << "] ? __in : ";
+        ib << "__var_reg[" << idx << "];" << std::endl;
         ++idx;
       }
     }
   }
 
-  ib << "if (__read[" << vt->feof_index() << "])" << std::endl;
-  ib << "__feof[__in[6:1]] <= __in[0];" << std::endl;
-  ib << "if (__apply_updates || __reset)" << std::endl;
+  ib << "if (__apply_updates) __feof_reg <= __feof;" << std::endl;
+  ib << "if (__read[" << vt->feof_index() << "] && !__in[0]) begin" << std::endl;
+  ib << "__feof_reg[__in[7:2]] <= __in[1];" << std::endl;
+  ib << "end" << std::endl;
+  ib << "if (__reset) __feof_reg <= 0;" << std::endl;
+  ib << "if (__apply_updates || __reset) begin" << std::endl;
   ib << "__task_mask <= 0;" << std::endl;
+  ib << "__task_eof <= 0;" << std::endl;
+  ib << "end" << std::endl;
   ib << "end" << std::endl;    
 
   // Index the elements in the variable table which aren't inputs or stateful.
@@ -632,7 +644,7 @@ inline void Rewrite<T>::emit_logic(ModuleDeclaration* res, const ModuleDeclarati
         ib << "__out_buf_next[" << buf_idx << "] = ";
         ib << "__out_buf_next[" << buf_idx << "] | ";
         ib << "(__write[" << idx << "] ? ";
-        ib << "__var[" << idx << "]";
+        ib << "__var_reg[" << idx << "]";
         if (w < 64) ib << "[" << (w-1) << ":0]";
         ib << " : 0);" << std::endl;
         

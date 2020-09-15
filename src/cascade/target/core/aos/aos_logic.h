@@ -241,17 +241,14 @@ inline State* AosLogic<T>::get_state() {
 
 template <typename T>
 inline void AosLogic<T>::set_state(const State* s) {
-  // Reset state, drop updates, and pause execution
-  table_.write_control_var(table_.reset_index(), 1);
   for (const auto& sv : state_) {
     const auto itr = s->find(sv.first);
     if (itr != s->end()) {
       table_.write_var(sv.second, itr->second);
     }
   }
-  // Reset state, drop updates, and re-enable execution
+  // Reset execution
   table_.write_control_var(table_.reset_index(), 1);
-  table_.write_control_var(table_.resume_index(), 1);
 }
 
 template <typename T>
@@ -270,8 +267,6 @@ inline Input* AosLogic<T>::get_input() {
 
 template <typename T>
 inline void AosLogic<T>::set_input(const Input* i) {
-  // Reset state, drop updates, and pause execution
-  table_.write_control_var(table_.reset_index(), 1);
   for (size_t v = 0, ve = inputs_.size(); v < ve; ++v) {
     const auto* id = inputs_[v];
     if (id == nullptr) {
@@ -282,9 +277,8 @@ inline void AosLogic<T>::set_input(const Input* i) {
       table_.write_var(id, itr->second);
     }
   }
-  // Reset state, drop updates, and re-enable execution
+  // Reset execution
   table_.write_control_var(table_.reset_index(), 1);
-  table_.write_control_var(table_.resume_index(), 1);
 }
 
 template <typename T>
@@ -366,7 +360,8 @@ inline size_t AosLogic<T>::open_loop(VId clk, bool val, size_t itr) {
   // ticks.  Loop here either until control returns without having hit a task
   // (indicating that we've finished) or it trips a task that requires
   // immediate attention.
-  table_.write_control_var(table_.open_loop_index(), itr);
+  size_t full_cycles = (itr+1)/2;
+  table_.write_control_var(table_.open_loop_index(), full_cycles-1);
   while (handle_tasks() && !there_were_tasks_) {
     table_.write_control_var(table_.resume_index(), 1);
   }
@@ -380,9 +375,13 @@ inline size_t AosLogic<T>::open_loop(VId clk, bool val, size_t itr) {
     while (handle_tasks()) {
       table_.write_control_var(table_.resume_index(), 1);
     }
-    return res;
+    // not sure this is necessary
+    table_.write_control_var(table_.apply_update_index(), 1);
+    return (full_cycles - res)*2;
   } else {
-    return itr;
+    // not sure this is necessary
+    table_.write_control_var(table_.apply_update_index(), 1);
+    return full_cycles*2;
   }
 }
 
@@ -478,7 +477,6 @@ inline bool AosLogic<T>::handle_tasks() {
   if (task_id == 0) {
     return false;
   }
-  assert(task_id != 65535);
   const auto* task = tasks_[task_id];
 
   switch (task->get_tag()) {
@@ -506,7 +504,9 @@ inline bool AosLogic<T>::handle_tasks() {
       }
       is.second->clear();
       is.second->flush();
-      table_.write_control_var(table_.feof_index(), (is.first << 1) | is.second->eof());
+      if (is.second->eof()) {
+        table_.write_control_var(table_.feof_index(), 1);
+      }
 
       break;
     }
@@ -526,7 +526,9 @@ inline bool AosLogic<T>::handle_tasks() {
       is.second->clear();
       is.second->seekg(offset, way); 
       is.second->seekp(offset, way); 
-      table_.write_control_var(table_.feof_index(), (is.first << 1) | is.second->eof());
+      if (is.second->eof()) {
+        table_.write_control_var(table_.feof_index(), 1);
+      }
 
       break;
     }
@@ -541,12 +543,12 @@ inline bool AosLogic<T>::handle_tasks() {
 
       scanf_.read_without_update(*is.second, &eval_, gs);
       if (gs->is_non_null_var()) {
-        const auto* r = Resolve().get_resolution(gs->get_var());
+        //const auto* r = Resolve().get_resolution(gs->get_var());
         assert(r != nullptr);
-        table_.write_var(r, scanf_.get());
+        table_.write_task(gs->get_var(), scanf_.get());
       }
       if (is.second->eof()) {
-        table_.write_control_var(table_.feof_index(), (is.first << 1) | 1);
+        table_.write_control_var(table_.feof_index(), 1);
       }
 
       break;
@@ -563,7 +565,7 @@ inline bool AosLogic<T>::handle_tasks() {
       ps->accept_expr(&sync_);
       printf_.write(*is.second, &eval_, ps);
       if (is.second->eof()) {
-        table_.write_control_var(table_.feof_index(), (is.first << 1) | 1);
+        table_.write_control_var(table_.feof_index(), 1);
       }
 
       break;
@@ -655,6 +657,7 @@ inline void AosLogic<T>::Inserter::visit(const FseekStatement* fs) {
 template <typename T>
 inline void AosLogic<T>::Inserter::visit(const GetStatement* gs) {
   av_->tasks_.push_back(gs);
+  av_->table_.insert_task(gs->get_var());
   in_args_ = true;
   gs->accept_fd(this);
   in_args_ = false;
