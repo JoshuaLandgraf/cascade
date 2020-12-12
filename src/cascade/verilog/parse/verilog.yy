@@ -125,6 +125,10 @@ cascade::SeqBlock* desugar_io(bool input, const cascade::Expression* fd, InItr b
 %token END_OF_FILE "<end_of_file>"
 %token UNPARSEABLE "<unparseable>"
 
+/* Timescale Tokens */
+%token TIMESCALE "`timescale"
+%token UNIT      "<timescale unit>"
+
 /* Operators and Tokens */
 %token AAMP    "&&"
 %token AMP     "&"
@@ -240,6 +244,7 @@ cascade::SeqBlock* desugar_io(bool input, const cascade::Expression* fd, InItr b
 %token SYS_SCANF       "$scanf"
 %token SYS_SHOWSCOPES  "$showscopes"
 %token SYS_SHOWVARS    "$showvars"
+%token SYS_TARGET      "$target"
 %token SYS_WARNING     "$warning"
 %token SYS_WRITE       "$write"
 %token SYS_YIELD       "$yield"
@@ -420,6 +425,7 @@ cascade::SeqBlock* desugar_io(bool input, const cascade::Expression* fd, InItr b
 /* A.8.3 Expressions */
 %type <ConditionalExpression*> conditional_expression
 %type <FeofExpression*> feof_expression
+%type <TargetExpression*> target_expression
 %type <Expression*> expression
 %type <Expression*> mintypmax_expression
 %type <Expression*> range_expression
@@ -507,6 +513,9 @@ cascade::SeqBlock* desugar_io(bool input, const cascade::Expression* fd, InItr b
 %type <PortDeclaration::Type> alt_port_type
 %type <bool> alt_net_type
 
+/* Additional System Tasks */
+%type <bool> timescale
+
 %%
 
 main 
@@ -517,6 +526,9 @@ main
   | restore non_port_module_item backup { 
     parser->res_.insert(parser->res_.end(), $2.begin(), $2.end()); 
     YYACCEPT; 
+  }
+  | restore timescale backup {
+    YYACCEPT;
   }
   | restore END_OF_FILE { 
     parser->eof_ = true; 
@@ -1852,6 +1864,9 @@ feof_expression
     $$ = new FeofExpression($3);
     parser->set_loc($$);
   }
+target_expression
+  : SYS_TARGET OPAREN CPAREN { $$ = new TargetExpression(); parser->set_loc($$); }
+  | SYS_TARGET { $$ = new TargetExpression(); parser->set_loc($$); }
 expression
   : primary { 
     $$ = $1; 
@@ -1933,6 +1948,7 @@ expression
   }
   | conditional_expression { $$ = $1; }
   | feof_expression { $$ = $1; }
+  | target_expression { $$ = $1; }
   ;
 mintypmax_expression
   : expression { $$ = $1; }
@@ -2414,6 +2430,11 @@ alt_net_type
   | WIRE { $$ = false; }
   | REG { $$ = true; }
   ; 
+
+timescale
+  : TIMESCALE UNIT DIV UNIT { parser->log_->warn("Cascade ignores timescale annotations"); }
+  ;
+
 %%
 
 namespace cascade {
