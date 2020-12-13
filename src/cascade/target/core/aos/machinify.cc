@@ -199,22 +199,29 @@ void Machinify::Generate::visit(const CaseStatement* cs) {
     ends.push_back(current_);
   }
 
-  auto* branch = new CaseStatement(cs->get_type(), cs->get_cond()->clone());
+  CaseStatement branch(cs->get_type(), cs->get_cond()->clone());
   size_t idx = 0;
   for (auto i = cs->begin_items(), ie = cs->end_items(); i != ie; ++i) {
-    branch->push_back_items(new CaseItem(
+    branch.push_back_items(new CaseItem(
       new BlockingAssign(
         new Identifier(new Id("__state"), new Number(Bits(16, idx_))),
         new Number(Bits(16, begins[idx++].first))
       )
     ));
     for (auto j = (*i)->begin_exprs(), je = (*i)->end_exprs(); j != je; ++j) {
-      branch->back_items()->push_back_exprs((*j)->clone());
+      branch.back_items()->push_back_exprs((*j)->clone());
     }
   }
-  append(begin.second, branch);
+  if (!cs->has_default()) {
+    branch.push_back_items(new CaseItem(
+      new BlockingAssign(
+        new Identifier(new Id("__state"), new Number(Bits(16, idx_))),
+        new Number(Bits(16, current_.first))
+      )
+    ));
+  }
+  append(begin.second, &branch);
   
-  next_state();
   for (auto& e : ends) {
     transition(e.second, current_.first);
   }
@@ -263,7 +270,7 @@ void Machinify::Generate::visit(const ConditionalStatement* cs) {
   // And now we need transitions between the branches. The true branch always
   // goes to tbe beginning of the then state, and the else branch either goes
   // to the beginning of the else state or one past the end of the then state.
-  auto* branch = new ConditionalStatement(
+  ConditionalStatement branch(
     cs->get_if()->clone(),
     new BlockingAssign(
       new Identifier(new Id("__state"), new Number(Bits(16, idx_))),
@@ -274,7 +281,7 @@ void Machinify::Generate::visit(const ConditionalStatement* cs) {
       new Number(Bits(16, !empty_else ? else_begin.first : (then_end.first + 1)))
     )
   );
-  append(begin.second, branch);
+  append(begin.second, &branch);
 
   // If we emitted a phi node, the then branch goes there (to the current state).
   // And if the else branch was non-empty, it goes there as well.
