@@ -408,6 +408,7 @@ void Runtime::retarget(const string& s) {
     root_ = nullptr;
     auto* backup_parser = parser_;
     parser_ = new Parser(log_);
+    parser_->set_include_dirs(include_dirs_);
 
     // Read the march file
     eval_stream(ifs);

@@ -37,7 +37,7 @@
 module test(clk);
   // Truncated for development
   parameter NUM_INPUTS = 32;
-  parameter TESTS_TO_RUN = 50;
+  parameter TESTS_TO_RUN = 6000000;
   
   localparam BUFFER_BYTES = 32;
 
@@ -91,7 +91,6 @@ module test(clk);
 
   reg inDone, encDone, decDone;
 
-  (*non_volatile*)
   reg[31:0] testCount;
 
   reg[7:0] inReg, decReg;
@@ -104,30 +103,19 @@ module test(clk);
   reg[15:0] inIdx, encIdx, decIdx;
 
   // Buffers to hold file content
-  (*non_volatile*)
   reg[(BUFFER_BYTES << 3) - 1:0] inBuf [(TOTAL_IN_BYTES / BUFFER_BYTES) - 1:0];
-  (*non_volatile*)
   reg[(BUFFER_BYTES << 3) - 1:0] encBuf [(TOTAL_ENC_BYTES / BUFFER_BYTES) - 1:0];
-  (*non_volatile*)
   reg[(BUFFER_BYTES << 3) - 1:0] decBuf [(TOTAL_DEC_BYTES / BUFFER_BYTES) - 1:0];
   reg[31:0] inBytesRead, encBytesRead, decBytesRead;
 
-  (*non_volatile*)
   reg[3:0] mainState;
-  (*non_volatile*)
   reg[3:0] inState;
-  (*non_volatile*)
   reg[3:0] encState;
-  (*non_volatile*)
   reg[3:0] decState;
 
-  (*non_volatile*)
   reg[31:0] mCtr;
-  (*non_volatile*)
   reg[31:0] iCtr;
-  (*non_volatile*)
   reg[31:0] eCtr;
-  (*non_volatile*)
   reg[31:0] dCtr;
 
   integer inFd = $fopen("share/cascade/test/benchmark/adpcm/in.dat", "r");
@@ -211,8 +199,6 @@ module test(clk);
           testCount <= testCount + 1;
           mCtr <= 0;
           mainState <= MAIN0;
-          
-          $yield;
         end
       end
 
