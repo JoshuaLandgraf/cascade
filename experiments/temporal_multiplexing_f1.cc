@@ -4,15 +4,26 @@
 #include <iostream>
 #include "../include/cascade.h"
 #include "../include/cascade_slave.h"
+#include "target/core/aos/f1/vivado_server.h"
 
 using namespace cascade;
 using namespace std;
 
-int main() {
+int main(int argc, char *argv[]) {
   const bool log_separately = false;
-  
+
+  const bool run_vs = (argc == 1);
+  aos::VivadoServer* vs1 = nullptr;
+  if (run_vs) {
+    vs1 = new aos::VivadoServer();
+    vs1->set_port(9907);
+    assert(!vs1->error());
+    vs1->run();
+  }
+
   CascadeSlave hypervisor;
-  hypervisor.set_listeners("/tmp/fpga_socket", 8800);
+  hypervisor.set_listeners("/tmp/fpga_socket", 8807);
+  hypervisor.set_vivado_server("localhost", 9907, 0);
   hypervisor.run();
 
   Cascade c1;
@@ -30,8 +41,8 @@ int main() {
   c1.set_fopen_dirs("..");
   c1.run();
 
-  c1 << "`include \"share/cascade/march/regression/remote.v\"\n";
-  c1 << "`include \"share/cascade/test/benchmark/regex/run_disjunct_256.v\"\n";
+  c1 << "`include \"share/cascade/march/regression/f1_remote.v\"\n";
+  c1 << "`include \"share/cascade/test/benchmark/regex/run_disjunct_64.v\"\n";
   c1.flush();
 
   this_thread::sleep_for(chrono::seconds(20));
@@ -54,7 +65,7 @@ int main() {
   c2.set_fopen_dirs("..");
   c2.run();
 
-  c2 << "`include \"share/cascade/march/regression/remote.v\"\n";
+  c2 << "`include \"share/cascade/march/regression/f1_remote.v\"\n";
   c2 << "`include \"share/cascade/test/benchmark/nw/run_8.v\"\n";
   c2.flush();
   
@@ -65,6 +76,7 @@ int main() {
   this_thread::sleep_for(chrono::seconds(10));
 
   c1.stop_now();
+  if (run_vs) vs1->stop_now();
 
   // Let everything go out of scope in reverse of order it was declared in.
   // This avoids a bug which occurs when the hypervisor is torn down first.

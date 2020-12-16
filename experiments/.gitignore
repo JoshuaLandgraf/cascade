@@ -1,0 +1,15 @@
+# binaries
+suspend
+suspend_f1
+resume
+resume_f1
+migration
+migration_f1
+temporal_multiplexing
+temporal_multiplexing_f1
+spatial_multiplexing
+spatial_multiplexing_f1
+
+# logs
+state.dat
+*.log
