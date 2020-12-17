@@ -1,9 +1,9 @@
 #!/bin/bash
 
 function kill_subproc {
-	#https://unix.stackexchange.com/questions/124127/kill-all-descendant-processes
-	#kill $(ps -s $$ -o pid=)
-	pkill -2 -P $$
+	if [ -n "${VPID}" ]; then
+		kill -9 $VPID
+	fi
 	exit 1
 }
 
@@ -42,7 +42,9 @@ do
 	echo ${freqs[$i]} >freq.txt
 	#./aws_build_dcp_from_cl.sh -clock_recipe_a ${recipes[$i]} -strategy CONGESTION -foreground >log.txt 2>&1
 	#./aws_build_dcp_from_cl.sh -clock_recipe_a ${recipes[$i]} -strategy BASIC -foreground >log.txt 2>&1
-	./aws_build_dcp_from_cl.sh -clock_recipe_a ${recipes[$i]} -foreground >log.txt 2>&1
+	./aws_build_dcp_from_cl.sh -clock_recipe_a ${recipes[$i]} -foreground >log.txt 2>&1 &
+	VPID=$!
+	wait $VPID
 	RC=$?
 	TIME=$(basename $(ls -1 *.vivado.log | tail -n 1) .vivado.log)
 	mkdir -p ../../../old_logs
