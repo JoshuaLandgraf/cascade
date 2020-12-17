@@ -8,6 +8,8 @@ This guide covers running various experiments shown in our ASPLOS'21 paper. Befo
 
 Currently, we aim to provide experiments to reproduce the data depicted in the line graphs presented in our paper, as they demonstrate the novel functionality Synergy provides. To make running these experiments as simple as possible, we provide programs that use Synergy's library interface to automate the process of triggering the relevant actions in each experiment.
 
+We currently include experiments for suspend, resume, live migration, temporal multiplexing, and spatial multiplexing. Different versions of the experiments are available for targeting different backends. The base version of each experiment runs entirely in software simulation. These are handy for demonstrating support for virtualization without requiring a specific platform. We also provide versions of the code that target the F1 hardware backend, which are postfixed with `_f1`.
+
 ## Building
 
 Once Synergy has been built, building the experiments is quite simple. The Makefile builds the experiments against the version of Synergy in the local build directory, so installing Synergy isn't necessary to compile them.
@@ -15,6 +17,10 @@ Once Synergy has been built, building the experiments is quite simple. The Makef
     cd /home/centos/src/project_data/cascade-f1/experiments
 	source /opt/rh/devtoolset-8/enable
 	make
+
+If you wish to run the experiments on the F1 backend, it is recommended you pre-populate Synergy's bitstream cache. The experiments as is do not run for long enough for the bitstreams to be generated during their execution. Instead, we provide a script that largely automates the process of generating these bitstreams, `./cache_bitstreams.sh`. This script starts instances of `vivado_server`, `cascade`, and `cascade_slave` that run each application in isolation as well as the combinations of applications used by our experiments. We strongly recommend running it on a larger F1 instance, like an f1.4xlarge, as running 9 builds in parallel will consume a lot of RAM and CPU cores. We also recommend running this script inside `screen` or a similar alternative in case your SSH connection is interrupted. The entire build process takes about a day, so SSH disconnects are a real concern.
+
+The script automatically kills `cascade` and `cascade_slave` instances once the builds have started to reduce CPU usage. However, this means it is difficult to track when all the builds have finished. The most reliable method is to look for their bitstream IDs in the bitstream cache file with `grep agfi /tmp/f1/cache.txt`. There should be at least 9 entries, one for each of the 9 builds. You can also track outstanding compilations by looking for instances of the `compile.sh` script with `ps aux | grep compile.sh`. However, there is a short period of time between when this script finishes and when `vivado_server` logs the results to the bitstream cache, so don't run `killall vivado_server` until you're sure the results have been logged to the cache file. Once all the `vivado_server` instances are killed, `cache_bitstreams.sh` should exit automatically.
 
 ## Experiments
 

@@ -145,9 +145,13 @@ The `cascade_slave` program has a few notable configuration options as well.
 - `--compiler_fpga <index>` allows setting the index of the FPGA being managed (starting at 0).
 - `--compiler_port <port>` works the same way as for `cascade`.
 
+### Running virtualization experiments
+
+With Synergy up and running, you can begin running the experiments presented in the paper. These experiments have been automated using the `libcascade` C++ library interface and can be found in the `experiments` directory. The [README.md](./experiments/README.md) there documents how the experiments work and what the output of the experiments should look like. It also contains a script that helps automate the process of populating Synergy's bitstream cache. You may want to run this script before running benchmarks standalone.
+
 ### Running benchmarks standalone
 
-Running applications by themselves is fairly trivial. First start up some `vivado_server` instances in separate `screen`, `tmux`, or `nohup` sessions to be able to compile.
+First, start up some `vivado_server` instances. If you have already pre-populated the bitstream cache, a single, instance of `vivado_server` is fine as it only needs to return results from the cache. If you would like to manually generate bitstreams for each application, we recommend creating an instance of `vivado_server` for each application in separate `screen`, `tmux`, or `nohup` sessions, as the builds can take a few hours.
 
     (screen 1) vivado_server --port 9901
     (screen 2) vivado_server --port 9902
@@ -156,19 +160,19 @@ Running applications by themselves is fairly trivial. First start up some `vivad
     (screen 5) vivado_server --port 9905
     (screen 6) vivado_server --port 9906
 
-These `vivado_server` instances will run in the foreground until killed with `ctrl-c` or `fuser -k <port>/tcp`. It can take a minute for the port to be freed by the OS after `vivado_server` is killed, so starting a new server with the same port shortly afterward may result in it exiting unexpectedly.
+These `vivado_server` instances will run in the foreground until killed with `ctrl-c` or `fuser -k <port>/tcp`. It can take a minute for the port to be freed by the OS after `vivado_server` is killed, so starting a new server with the same port shortly afterward may result in it exiting unexpectedly. If this happens, simply wait a minute for the OS to reclaim the port before retrying if this happens.
 
-The Verilog and data files for our benchmarks can be found in `share/cascade/test/benchmark`. Each of the 6 main benchmarks can be run as follows. Note that running multiple instances of cascade with an F1 backend can cause issues if they both try to use the FPGA at the same time.
+The Verilog and data files for our benchmarks can be found in `share/cascade/test/benchmark`. Each of the 6 main benchmarks can be run as shown below. Note that running multiple instances of cascade with an F1 backend can cause issues if they both try to use the FPGA at the same time. When running on an instance that has multiple FPGAs (e.g. f1.4xlarge), you can use the `--compiler_fpga <index>` option with `cascade` to have applications run on separate FPGAs concurrently.
 
     cd /home/centos/src/project_data/cascade-f1
     cascade --march regression/f1_minimal -e share/cascade/test/benchmark/adpcm/adpcm_6M.v --compiler_port 9901 --enable_info --profile 2
     cascade --march regression/f1_minimal -e share/cascade/test/benchmark/bitcoin/run_30.v --compiler_port 9902 --enable_info --profile 2
     cascade --march regression/f1_minimal -e share/cascade/test/benchmark/df/df_tb_de10.v --compiler_port 9903 --enable_info --profile 2
-    cascade --march regression/f1_minimal -e share/cascade/test/benchmark/mips32/run_bubble_128_1024.v --compiler_port 9904 --enable_info --profile 2
+    cascade --march regression/f1_minimal -e share/cascade/test/benchmark/mips32/run_bubble_128_32768.v --compiler_port 9904 --enable_info --profile 2
     cascade --march regression/f1_minimal -e share/cascade/test/benchmark/nw/run_8.v --compiler_port 9905 --enable_info --profile 2
     cascade --march regression/f1_minimal -e share/cascade/test/benchmark/regex/run_disjunct_64.v --compiler_port 9906 --enable_info --profile 2
 
-The output from `cascade` should resemble the following (from `bitcoin/run_25.v`):
+The output from `cascade` should resemble the following (from `bitcoin/run_25.v` with a cached bitstream):
 
 	>>> Started logical simulation...
 	>>> Installation Path: /usr/local/bin/../
@@ -209,8 +213,4 @@ When `cascade` runs, it starts simulation immediately and begins parsing the pro
 
 It is worth noting that logical time is incremented every time the clock goes up or down. Since frequency is measured in full clock cycles (posedge and negedge), the frequency will be half the logical time passed between two points in time. With a profile interval of 2, logical time is reported every two seconds, so we see 100MHz * 2s * 2 flips per clock = ~400M clock flips between the last two reported logical times.
 
-The bitcoin, mips32, nw, and regex benchmark directories contain README.txt files documenting their expected outputs for a number of configurations, allowing you to validate their output. They should generally run on the order of seconds to a few minutes on the FPGA, with the exception of regex. Lower loop count configurations of regex can complete execution in software before transitioning to the FPGA, even with the bitstream cached. However, higher loop count configurations can run for a very long time once execution has transitioned to the FPGA due to regex being communication-bound.
-
-### Running virtualization experiments
-
-With Synergy up and running, you can begin running the experiments presented in the paper. These experiments have been automated using the `libcascade` C++ library interface and can be found in the `experiments` directory. The [README.md](./experiments/README.md) there documents how the experiments work and what the output of the experiments should look like.
+The bitcoin, mips32, nw, and regex benchmark directories contain README.txt files documenting their expected outputs for a number of configurations, allowing you to validate their output. They should generally run on the order of seconds to a few minutes on the FPGA, with the exception of regex. Lower loop count configurations of regex can complete execution in software before transitioning to the FPGA, even with the bitstream cached. However, higher loop count configurations can run for a very long time once execution has transitioned to the FPGA due to regex being communication-bound, so we don't recommend trying to run regex to completion at this time.
