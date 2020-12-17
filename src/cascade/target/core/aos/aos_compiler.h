@@ -224,8 +224,8 @@ inline AosLogic<T>* AosCompiler<T>::compile_logic(Engine::Id id, ModuleDeclarati
         if (compile(get_text(), lock_)) {
           update();
         } else {
-          get_compiler()->error("Aos compile failed. Check compiler logs for errors.");
-          stop_compile(id, false);
+          //get_compiler()->error("Aos compile failed. Check compiler logs for errors.");
+          //stop_compile(id, false);
         }
         break;
       case State::WAITING:
