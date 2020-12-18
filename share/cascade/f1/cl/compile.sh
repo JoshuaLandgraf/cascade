@@ -50,9 +50,10 @@ do
 	mkdir -p ../../../old_logs
 	ln $TIME.vivado.log ../../../old_logs/$TIME.vivado.log
 	if [ $RC -ne 0 ]; then
-		echo "Failed to compile"
+		echo "Vivado error"
 		echo $RC >rc.txt
-		exit 1
+		continue
+		#exit 1
 	fi
 	grep -s -q "All user specified timing constraints are met." ../reports/$TIME.SH_CL_final_timing_summary.rpt
 	RC=$?
@@ -63,7 +64,7 @@ do
 	break
 done
 if [ $RC -ne 0 ]; then
-	echo "Cannot meet timing"
+	echo "Failed to compile design"
 	exit 1
 fi
 
