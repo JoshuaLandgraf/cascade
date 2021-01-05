@@ -90,7 +90,7 @@ int main(int argc, char *argv[]) {
   c3.run();
   
   c3 << "`include \"share/cascade/march/regression/f1_remote.v\"\n";
-  c3 << "`include \"share/cascade/test/benchmark/bitcoin/run_30.v\"\n";
+  c3 << "`include \"share/cascade/test/benchmark/adpcm/adpcm_6M.v\"\n";
   c3.flush();
   
   this_thread::sleep_for(chrono::seconds(35));

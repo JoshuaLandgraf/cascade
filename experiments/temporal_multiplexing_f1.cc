@@ -50,13 +50,13 @@ int main(int argc, char *argv[]) {
   Cascade c2;
   ofstream log2("nw.log");
   if (log_separately) {
-    c1.set_stdout(log2.rdbuf());
-    c1.set_stderr(log2.rdbuf());
-    c1.set_stdinfo(log2.rdbuf());
+    c2.set_stdout(log2.rdbuf());
+    c2.set_stderr(log2.rdbuf());
+    c2.set_stdinfo(log2.rdbuf());
   } else {
-    c1.set_stdout(cout.rdbuf());
-    c1.set_stderr(cout.rdbuf());
-    c1.set_stdinfo(cout.rdbuf());
+    c2.set_stdout(cout.rdbuf());
+    c2.set_stderr(cout.rdbuf());
+    c2.set_stdinfo(cout.rdbuf());
   }
   c2.set_stdout(cout.rdbuf());
   c2.set_stderr(cout.rdbuf());

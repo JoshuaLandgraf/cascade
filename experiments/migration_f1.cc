@@ -43,16 +43,16 @@ int main(int argc, char *argv[]) {
   c1.run();
 
   c1 << "`include \"share/cascade/march/regression/f1_remote.v\"\n";
-  c1 << "`include \"share/cascade/test/benchmark/mips32/run_bubble_128_1024.v\"\n";
+  c1 << "`include \"share/cascade/test/benchmark/mips32/run_bubble_128_32768.v\"\n";
   c1.flush();
 
-  this_thread::sleep_for(chrono::seconds(20));
+  this_thread::sleep_for(chrono::seconds(25));
 
   c1.clear();
   c1 << "initial $retarget(\"regression/f1_remote2\");\n";
   c1.flush();
   
-  this_thread::sleep_for(chrono::seconds(20));
+  this_thread::sleep_for(chrono::seconds(25));
 
   c1.stop_now();
 
