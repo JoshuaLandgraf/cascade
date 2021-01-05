@@ -26,52 +26,56 @@ The script automatically kills `cascade` and `cascade_slave` instances once the 
 
 ### Suspend and resume
 
-The suspend and resume experiment is broken into two programs: `suspend.cc` and `resume.cc`. The suspend program runs the bitcoin benchmark for some time, triggers a save task that saves the program's state to `state.dat`, and then exits shortly thereafter. The resume program starts running a new instance of bitcoin, triggers a restart task that loads the original program's state from `state.dat`, and resumes executing bitcoin from that checkpoint. Execution should look something like the following:
+The suspend and resume experiment is broken into two programs: `suspend.cc` and `resume.cc`. The suspend program runs the bitcoin benchmark for some time, triggers a save task that saves the program's state to `state.dat`, and then exits shortly thereafter. The resume program starts running a new instance of bitcoin, triggers a restart task that loads the original program's state from `state.dat`, and resumes executing bitcoin from that checkpoint. Execution should look something like the following on F1:
 
-    $ ./suspend
+    $ ./suspend_f1
 	...
-	Logical Time: 1376256
-	Virtual Freq: 49 KHz
 	Finished pass 1 compilation of root with attributes (*__std = "logic",__loc = "local",__target = "sw"*) 
 	Finished pass 1 compilation of root.clock with attributes (*__std = "clock",__loc = "local",__target = "sw"*) 
 	<save> root
 	<save> root.clock
-	Logical Time: 1572864
-	Virtual Freq: 49 KHz
+	Logical Time: 3154124798
+	Virtual Freq: 100 MHz
 	...
-	$ ./resume
+	$ ./resume_f1
 	...
-	Logical Time: 360448
-	Virtual Freq: 49 KHz
+	Logical Time: 1073750014
+	Virtual Freq: 89 MHz
 	Finished pass 1 compilation of root with attributes (*__std = "logic",__loc = "local",__target = "sw"*) 
 	Finished pass 1 compilation of root.clock with attributes (*__std = "clock",__loc = "local",__target = "sw"*) 
 	<restart> root
 	<restart> root.clock
-	Logical Time: 557056
-	Virtual Freq: 49 KHz
+	Logical Time: 1342185470
+	Virtual Freq: 134 MHz
 	...
 
 
 ### Hardware migration
 
-The hardware migration experiment is carried out by the `migration.cc` program. This experiment starts by creating two hypervisors and executing mips through the first hypervisor. After some time, it triggers a retarget task that migrates execution over to the second hypervisor. Mips then continues to run for a while before the program exits. Execution should look something like the following:
+The hardware migration experiment is carried out by the `migration.cc` program. This experiment starts by creating two hypervisors and executing mips through the first hypervisor. After some time, it triggers a retarget task that migrates execution over to the second hypervisor. Mips then continues to run for a while before the program exits. Execution should look something like the following on F1:
 
-    $ ./migration
+    $ ./migration_f1
 	...
-	Finished pass 1 compilation of root with attributes (*__std = "logic",__loc = "/tmp/fpga_socket",__target = "sw"*) 
-	Finished pass 1 compilation of root.clock with attributes (*__std = "clock",__loc = "local",__target = "sw"*) 
-	Logical Time: 262144
-	Virtual Freq: 131 KHz
+	Finished pass 2 compilation of root with attributes (*__std = "logic",__loc = "/tmp/fpga_socket",__target = "f1"*) 
+	Logical Time: 33619966
+	Virtual Freq: 16 MHz
 	...
-	Logical Time: 6422528
-	Virtual Freq: 262 KHz
-	Finished pass 1 compilation of root with attributes (*__std = "logic",__loc = "/tmp/fpga_socket",__target = "sw"*) 
-	Finished pass 1 compilation of root.clock with attributes (*__std = "clock",__loc = "local",__target = "sw"*) 
-	Finished pass 1 compilation of root with attributes (*__std = "logic",__loc = "/tmp/fpga_socket2",__target = "sw"*) 
-	Finished pass 1 compilation of root.clock with attributes (*__std = "clock",__loc = "local",__target = "sw"*) 
-	Logical Time: 7208960
-	Virtual Freq: 393 KHz
+	Aborted pass 2 compilation of root with attributes (*__std = "logic",__loc = "/tmp/fpga_socket",__target = "f1"*) 
+	<save> root
+	<save> root.clock
+	Deploying agfi-003053dd348ef65cf to fpga 1
+	<restart> root
+	<restart> root.clock
+	Logical Time: 2030174205
+	Virtual Freq: 16 KHz
+	Finished pass 2 compilation of root with attributes (*__std = "logic",__loc = "/tmp/fpga_socket2",__target = "f1"*) 
+	Logical Time: 2038562811
+	Virtual Freq: 4 MHz
+	Logical Time: 2168586235
+	Virtual Freq: 32 MHz
 	...
+
+Note that the first FPGA is reconfigured 
 
 ### Temporal multiplexing
 
@@ -107,40 +111,30 @@ By default, the logs of both regex and nw are printed to the console in real tim
 
 ### Spatial multiplexing
 
-The spatial multiplexing experiment is implemented by `spatial_multiplexing.cc`. It is similar to the temporal multiplexing experiment, except the benchmarks do not contend for I/O. A single hypervisor starts by running the df benchmark. After some time, bitcoin starts running through the hypervisor as well. And after some further time, adpcm also starts running through the hypervisor too. After all three programs execute for some time, the program exits. The `log_separately` option is available like before to switch between console and log output for the benchmarks. Execution should look something like the following if using console output:
+The spatial multiplexing experiment is implemented by `spatial_multiplexing.cc`. It is similar to the temporal multiplexing experiment, except the benchmarks do not contend for I/O. A single hypervisor starts by running the df benchmark. After some time, bitcoin starts running through the hypervisor as well. And after some further time, adpcm also starts running through the hypervisor too. After all three programs execute for some time, the program exits. The `log_separately` option is available like before to switch between console and log output for the benchmarks. Execution should look something like the following if using console output on F1:
 
-    ./spatial_multiplexing
+    ./spatial_multiplexing_f1
 	Started logical simulation...
 	...
-	Finished pass 1 compilation of root with attributes (*__std = "logic",__loc = "/tmp/fpga_socket",__target = "sw"*) 
-	Finished pass 1 compilation of root.clock with attributes (*__std = "clock",__loc = "local",__target = "sw"*) 
-	Logical Time: 131072
-	Virtual Freq: 65 KHz
+	Finished pass 2 compilation of root with attributes (*__std = "logic",__loc = "/tmp/fpga_socket",__target = "f1"*) 
+	Logical Time: 134283262
+	Virtual Freq: 67 MHz
 	...
-	Logical Time: 2424832
-	Virtual Freq: 65 KHz
-	Started logical simulation...
-	Finished pass 1 compilation of root with attributes (*__std = "logic",__loc = "/tmp/fpga_socket",__target = "sw"*) 
-	Finished pass 1 compilation of root.clock with attributes (*__std = "clock",__loc = "local",__target = "sw"*) 
-	Logical Time: 3735552
-	Virtual Freq: 65 KHz
-	Logical Time: 8
-	Virtual Freq: 1152912709018 MHz
-	Logical Time: 3997696
-	Virtual Freq: 65 KHz
-	Logical Time: 11
-	Virtual Freq: 0 Hz
-	...
-	Logical Time: 31
-	Virtual Freq: 1 Hz
 	Started logical simulation...
 	...
-	Finished pass 1 compilation of root with attributes (*__std = "logic",__loc = "/tmp/fpga_socket",__target = "sw"*) 
-	Finished pass 1 compilation of root.clock with attributes (*__std = "clock",__loc = "local",__target = "sw"*) 
-	Logical Time: 21
-	Virtual Freq: 709490156619 MHz
-	Logical Time: 7405568
-	Virtual Freq: 65 KHz
-	Logical Time: 63
-	Virtual Freq: 0 Hz
+	Finished pass 2 compilation of root with attributes (*__std = "logic",__loc = "/tmp/fpga_socket",__target = "f1"*) 
+	Logical Time: 360448
+	Virtual Freq: 16 KHz
+	Logical Time: 5301665790
+	Virtual Freq: 89 MHz
+	...
+	Started logical simulation...
+	...
+	Finished pass 2 compilation of root with attributes (*__std = "logic",__loc = "/tmp/fpga_socket",__target = "f1"*) 
+	Logical Time: 8791326718
+	Virtual Freq: 33 MHz
+	Logical Time: 2883584
+	Virtual Freq: 26 KHz
+	Logical Time: 362033
+	Virtual Freq: 64 Hz
 	...
