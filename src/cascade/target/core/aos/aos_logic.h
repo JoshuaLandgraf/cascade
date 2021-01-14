@@ -647,9 +647,7 @@ inline void AosLogic<T>::StreamSync::visit(const FopenExpression* fe) {
   
   auto* is = av_->get_stream(fd);
   is->peek();
-  if (is->eof()) {
-    av_->set_feof_mask(fd, true);
-  } 
+  av_->set_feof_mask(fd, is->eof());
 }
 
 template <typename T>
