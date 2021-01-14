@@ -459,12 +459,14 @@ void RemoteCompiler::open_loop(sockstream* sock, Engine* e) {
   uint32_t itr = 0;
   sock->read(reinterpret_cast<char*>(&itr), 4);
 
-  const uint32_t res = e->open_loop(clk, val, itr);
-  // This call to open_loop  will have primed the socket with tasks and
-  // writes Appending an OKAY rpc, indicates that everything has been sent.
-  Rpc(Rpc::Type::OKAY).serialize(*sock);
-  sock->write(reinterpret_cast<const char*>(&res), 4);
-  sock->flush();
+  pool_.insert([this, sock, e, clk, val, itr]{
+    const uint32_t res = e->open_loop(clk, val, itr);
+    // This call to open_loop  will have primed the socket with tasks and
+    // writes Appending an OKAY rpc, indicates that everything has been sent.
+    Rpc(Rpc::Type::OKAY).serialize(*sock);
+    sock->write(reinterpret_cast<const char*>(&res), 4);
+    sock->flush();
+  });
 }
 
 void RemoteCompiler::open_conn_1(sockstream* sock, const Rpc& rpc) {
