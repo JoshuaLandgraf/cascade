@@ -199,6 +199,8 @@ void Machinify::Generate::visit(const CaseStatement* cs) {
     ends.push_back(current_);
   }
 
+  next_state();
+
   CaseStatement branch(cs->get_type(), cs->get_cond()->clone());
   size_t idx = 0;
   for (auto i = cs->begin_items(), ie = cs->end_items(); i != ie; ++i) {
