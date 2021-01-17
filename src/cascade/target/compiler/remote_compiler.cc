@@ -115,22 +115,25 @@ void RemoteCompiler::run_logic() {
     return;
   }
 
-  fd_set master_set;
+  mlock_.lock();
   FD_ZERO(&master_set);
   FD_SET(tl.descriptor(), &master_set);
   FD_SET(ul.descriptor(), &master_set);
+  mlock_.unlock();
 
   fd_set read_set;
   FD_ZERO(&read_set);
 
-  struct timeval timeout = {1, 0};
+  struct timeval timeout = {0, 10000};
   auto max_fd = max(tl.descriptor(), ul.descriptor());
 
-  pool_.set_num_threads(4);
+  pool_.set_num_threads(8);
   pool_.run();
 
   while (!stop_requested()) {
+    mlock_.lock();
     read_set = master_set;
+    mlock_.unlock();
     select(max_fd+1, &read_set, nullptr, nullptr, &timeout);
     for (auto i = 0; i <= max_fd; ++i) {
       
@@ -146,7 +149,9 @@ void RemoteCompiler::run_logic() {
         lock_guard<mutex> lg(slock_);
         auto* sock = (i == tl.descriptor()) ? tl.accept() : ul.accept();
         const auto fd = sock->descriptor();
+        mlock_.lock();
         FD_SET(fd, &master_set);
+        mlock_.unlock();
         if (fd > max_fd) {
           max_fd = fd;
           socks_.resize(max_fd+1, nullptr);
@@ -171,14 +176,18 @@ void RemoteCompiler::run_logic() {
             compile(sock, rpc);
             sock = nullptr;
             socks_[i] = nullptr;
+            mlock_.lock();
             FD_CLR(i, &master_set);
+            mlock_.unlock();
             break;
           }
           case Rpc::Type::STOP_COMPILE: {
             stop_compile(sock, rpc);
             sock = nullptr;
             socks_[i] = nullptr;
+            mlock_.lock();
             FD_CLR(i, &master_set);
+            mlock_.unlock();
             break;
           }
 
@@ -229,14 +238,16 @@ void RemoteCompiler::run_logic() {
             conditional_update(sock, get_engine(rpc));
             break;
           case Rpc::Type::OPEN_LOOP:
-            open_loop(sock, get_engine(rpc));
+            open_loop(sock, get_engine(rpc), i);
             break;
 
           // Proxy Compiler Codes:
           case Rpc::Type::OPEN_CONN_1: {
             lock_guard<mutex> lg(slock_);
             open_conn_1(sock, rpc);
-            FD_CLR(sock->descriptor(), &master_set);                                              
+            mlock_.lock();
+            FD_CLR(sock->descriptor(), &master_set);
+            mlock_.unlock();
             break;
           }
           case Rpc::Type::OPEN_CONN_2: {
@@ -251,7 +262,9 @@ void RemoteCompiler::run_logic() {
             delete socks_[sock_index_[rpc.pid_].second];
             socks_[sock_index_[rpc.pid_].first] = nullptr;
             socks_[sock_index_[rpc.pid_].second] = nullptr;
+            mlock_.lock();
             FD_CLR(sock_index_[rpc.pid_].second, &master_set);
+            mlock_.unlock();
             sock_index_[rpc.pid_] = make_pair(-1,-1);
             break;
           }
@@ -452,20 +465,26 @@ void RemoteCompiler::conditional_update(sockstream* sock, Engine* e) {
   sock->flush();
 }
 
-void RemoteCompiler::open_loop(sockstream* sock, Engine* e) {
+void RemoteCompiler::open_loop(sockstream* sock, Engine* e, int fd) {
   uint32_t clk = 0;
   sock->read(reinterpret_cast<char*>(&clk), 4);
   bool val = (sock->get() == 1);
   uint32_t itr = 0;
   sock->read(reinterpret_cast<char*>(&itr), 4);
 
-  pool_.insert([this, sock, e, clk, val, itr]{
+  mlock_.lock();
+  FD_CLR(fd, &(this->master_set));
+  mlock_.unlock();
+  pool_.insert([this, sock, e, fd, clk, val, itr]{
     const uint32_t res = e->open_loop(clk, val, itr);
     // This call to open_loop  will have primed the socket with tasks and
     // writes Appending an OKAY rpc, indicates that everything has been sent.
     Rpc(Rpc::Type::OKAY).serialize(*sock);
     sock->write(reinterpret_cast<const char*>(&res), 4);
     sock->flush();
+    mlock_.lock();
+    FD_SET(fd, &(this->master_set));
+    mlock_.unlock();
   });
 }
 

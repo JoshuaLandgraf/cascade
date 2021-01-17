@@ -75,6 +75,10 @@ class RemoteCompiler : public Compiler, public Thread {
     // Maps a proxy core / engine id to a local engine id
     std::vector<std::vector<int>> engine_index_;
 
+    // Socket management
+    fd_set master_set;
+    std::mutex mlock_;
+
     // Compiler Interface:
     void schedule_state_safe_interrupt(Runtime::Interrupt int_) override;
     Interface* get_interface(const std::string& loc) override;
@@ -105,7 +109,7 @@ class RemoteCompiler : public Compiler, public Thread {
     void there_were_tasks(sockstream* sock, Engine* e);
 
     void conditional_update(sockstream* sock, Engine* e);
-    void open_loop(sockstream* sock, Engine* e);
+    void open_loop(sockstream* sock, Engine* e, int fd);
 
     void open_conn_1(sockstream* sock, const Rpc& rpc);
     void open_conn_2(sockstream* sock, const Rpc& rpc);
