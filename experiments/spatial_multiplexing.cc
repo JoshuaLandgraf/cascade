@@ -26,7 +26,7 @@ int main() {
     c1.set_stderr(cout.rdbuf());
     c1.set_stdinfo(cout.rdbuf());
   }
-  c1.set_profile_interval(1);
+  c1.set_profile_interval(2);
   c1.set_fopen_dirs("..");
   c1.run();
 
@@ -34,7 +34,7 @@ int main() {
   c1 << "`include \"share/cascade/test/benchmark/df/df_tb_de10.v\"\n";
   c1.flush();
 
-  this_thread::sleep_for(chrono::seconds(20));
+  this_thread::sleep_for(chrono::seconds(40));
 
   Cascade c2;
   ofstream log2("bitcoin.log");
@@ -47,10 +47,7 @@ int main() {
     c2.set_stderr(cout.rdbuf());
     c2.set_stdinfo(cout.rdbuf());
   }
-  c2.set_stdout(cout.rdbuf());
-  c2.set_stderr(cout.rdbuf());
-  c2.set_stdinfo(cout.rdbuf());
-  c2.set_profile_interval(1);
+  c2.set_profile_interval(2);
   c2.set_fopen_dirs("..");
   c2.run();
 
@@ -58,7 +55,7 @@ int main() {
   c2 << "`include \"share/cascade/test/benchmark/bitcoin/run_30.v\"\n";
   c2.flush();
   
-  this_thread::sleep_for(chrono::seconds(20));
+  this_thread::sleep_for(chrono::seconds(40));
   
   Cascade c3;
   ofstream log3("adpcm.log");
@@ -71,10 +68,7 @@ int main() {
     c3.set_stderr(cout.rdbuf());
     c3.set_stdinfo(cout.rdbuf());
   }
-  c3.set_stdout(cout.rdbuf());
-  c3.set_stderr(cout.rdbuf());
-  c3.set_stdinfo(cout.rdbuf());
-  c3.set_profile_interval(1);
+  c3.set_profile_interval(2);
   c3.set_fopen_dirs("..");
   c3.run();
   
@@ -82,7 +76,7 @@ int main() {
   c3 << "`include \"share/cascade/test/benchmark/adpcm/adpcm_6M.v\"\n";
   c3.flush();
   
-  this_thread::sleep_for(chrono::seconds(30));
+  this_thread::sleep_for(chrono::seconds(60));
   
   c3.stop_now();
   c2.stop_now();

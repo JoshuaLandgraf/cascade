@@ -21,7 +21,7 @@ int main() {
   c1.set_stdout(cout.rdbuf());
   c1.set_stderr(cout.rdbuf());
   c1.set_stdinfo(cout.rdbuf());
-  c1.set_profile_interval(1);
+  c1.set_profile_interval(2);
   c1.set_fopen_dirs("../");
   c1.run();
 
@@ -29,13 +29,13 @@ int main() {
   c1 << "`include \"share/cascade/test/benchmark/mips32/run_bubble_128_1024.v\"\n";
   c1.flush();
 
-  this_thread::sleep_for(chrono::seconds(15));
+  this_thread::sleep_for(chrono::seconds(30));
 
   c1.clear();
   c1 << "initial $retarget(\"regression/remote2\");\n";
   c1.flush();
   
-  this_thread::sleep_for(chrono::seconds(15));
+  this_thread::sleep_for(chrono::seconds(30));
 
   c1.stop_now();
 

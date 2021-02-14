@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
     c1.set_stderr(cout.rdbuf());
     c1.set_stdinfo(cout.rdbuf());
   }
-  c1.set_profile_interval(1);
+  c1.set_profile_interval(2);
   c1.set_fopen_dirs("..");
   c1.run();
 
@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
   c1 << "`include \"share/cascade/test/benchmark/regex/run_disjunct_64.v\"\n";
   c1.flush();
 
-  this_thread::sleep_for(chrono::seconds(20));
+  this_thread::sleep_for(chrono::seconds(50));
 
   Cascade c2;
   ofstream log2("nw.log");
@@ -58,10 +58,7 @@ int main(int argc, char *argv[]) {
     c2.set_stderr(cout.rdbuf());
     c2.set_stdinfo(cout.rdbuf());
   }
-  c2.set_stdout(cout.rdbuf());
-  c2.set_stderr(cout.rdbuf());
-  c2.set_stdinfo(cout.rdbuf());
-  c2.set_profile_interval(1);
+  c2.set_profile_interval(2);
   c2.set_fopen_dirs("..");
   c2.run();
 
@@ -69,11 +66,11 @@ int main(int argc, char *argv[]) {
   c2 << "`include \"share/cascade/test/benchmark/nw/run_8.v\"\n";
   c2.flush();
   
-  this_thread::sleep_for(chrono::seconds(30));
+  this_thread::sleep_for(chrono::seconds(70));
   
   c2.stop_now();
   
-  this_thread::sleep_for(chrono::seconds(10));
+  this_thread::sleep_for(chrono::seconds(20));
 
   c1.stop_now();
   if (run_vs) vs1->stop_now();
