@@ -214,3 +214,9 @@ When `cascade` runs, it starts simulation immediately and begins parsing the pro
 It is worth noting that logical time is incremented every time the clock goes up or down. Since frequency is measured in full clock cycles (posedge and negedge), the frequency will be half the logical time passed between two points in time. With a profile interval of 2, logical time is reported every two seconds, so we see 100MHz * 2s * 2 flips per clock = ~400M clock flips between the last two reported logical times.
 
 The bitcoin, mips32, nw, and regex benchmark directories contain README.txt files documenting their expected outputs for a number of configurations, allowing you to validate their output. They should generally run on the order of seconds to a few minutes on the FPGA, with the exception of regex. Lower loop count configurations of regex can complete execution in software before transitioning to the FPGA, even with the bitstream cached. However, higher loop count configurations can run for a very long time once execution has transitioned to the FPGA due to regex being communication-bound, so we don't recommend trying to run regex to completion at this time.
+
+## Errata
+
+There is a known issue with the AOS daemon that can occasionally cause communication issues between the runtime and the FPGA. This can sometimes happen when the FPGA is reconfigured or cleared outside of Cascade or when Cascade is killed while communicatiing with the FPGA. This issue can cause the runtime to crash or behave unexpectedly, like exiting execution immediately or reporting clearly incorrect profiling data. If you suspect this is happening, you can kill the background AOS daemon process manually with the following command. It will be restarted automatically the next time it is needed.
+
+    sudo killall daemon

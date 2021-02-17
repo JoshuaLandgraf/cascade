@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
   c1 << "`include \"share/cascade/test/benchmark/bitcoin/run_30.v\"\n";
   c1.flush();
   
-  this_thread::sleep_for(chrono::seconds(20));
+  this_thread::sleep_for(chrono::seconds(21));
   
   c1.clear();
   c1 << "initial $restart(\"state.dat\");\n";

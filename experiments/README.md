@@ -138,3 +138,12 @@ The spatial multiplexing experiment is implemented by `spatial_multiplexing.cc`.
 	Logical Time: 362033
 	Virtual Freq: 64 Hz
 	...
+
+## Errata
+
+There is a known issue with the AOS daemon that can occasionally cause communication issues between the runtime and the FPGA. This can sometimes happen when the FPGA is reconfigured or cleared outside of Cascade or when Cascade is killed while communicatiing with the FPGA. This issue can cause the runtime to crash or behave unexpectedly, like exiting execution immediately or reporting clearly incorrect profiling data. If you suspect this is happening, you can kill the background AOS daemon process manually with the following command. It will be restarted automatically the next time it is needed.
+
+    sudo killall daemon
+
+
+Due to higher communication latencies on F1, the temporal_multiplexing_f1 experiment (which uses the streaming benchmarks regex and nw) will have lower performance than the DE10 version of the experiment shown in the paper.
