@@ -15,4 +15,7 @@ module program_logic(
 
 parameter app_num = 0;
 
+assign softreg_resp_valid = 0;
+assign softreg_resp_data = 0;
+
 endmodule
