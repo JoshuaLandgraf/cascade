@@ -43,7 +43,7 @@ module cl_aos (
 // Unused AXIL interfaces
 `include "unused_cl_sda_template.inc"
 //`include "unused_sh_ocl_template.inc"
-`include "unused_sh_bar1_template.inc"
+//`include "unused_sh_bar1_template.inc"
 
 // Gen vars
 genvar i;
@@ -64,7 +64,7 @@ logic global_rst;
 //(* dont_touch = "true" *) logic sync_rst_n;
 //(* dont_touch = "true" *) logic sync_rst;
 
-lib_pipe #(.WIDTH(1), .STAGES(4)) PIPE_RST_N (.clk(global_clk), .rst_n(1'b1), .in_bus(rst_main_n), .out_bus(pipe_rst_n));
+lib_pipe #(.WIDTH(1), .STAGES(3)) PIPE_RST_N (.clk(global_clk), .rst_n(1'b1), .in_bus(rst_main_n), .out_bus(pipe_rst_n));
 
 /*
 always_ff @(negedge pipe_rst_n or posedge global_clk)
@@ -257,7 +257,10 @@ axi_bus_t axi_bus_tied();
 
 axi_bus_t sh_cl_dma_pcis_bus();
 
-axi_bus_t cl_axi_mstr_bus();
+axi_bus_t cl_axi_mstr_bus_1();
+axi_bus_t cl_axi_mstr_bus_2();
+axi_bus_t cl_axi_mstr_bus_3();
+axi_bus_t cl_axi_mstr_bus_4();
 
 axi_bus_t cl_sh_pcim_bus();
 axi_bus_t cl_sh_ddr_bus();
@@ -272,13 +275,6 @@ assign cl_sh_dma_wr_full  = 1'b0;
 // Unused *burst signals
 assign cl_sh_ddr_arburst[1:0] = 2'b01;
 assign cl_sh_ddr_awburst[1:0] = 2'b01;
-
-// Reset synchronizer
-/*
-(* dont_touch = "true" *) logic dma_pcis_slv_sync_rst_n;
-
-lib_pipe #(.WIDTH(1), .STAGES(4)) DMA_PCIS_SLV_SLC_RST_N (.clk(global_clk), .rst_n(1'b1), .in_bus(global_rst_n), .out_bus(dma_pcis_slv_sync_rst_n));
-*/
 
 // DDR Ready
 logic sh_cl_ddr_is_ready_q;
@@ -358,7 +354,10 @@ cl_dma_pcis_slv CL_DMA_PCIS_SLV (
 	.aresetn(global_rst_n),
 	
 	.sh_cl_dma_pcis_bus(sh_cl_dma_pcis_bus),
-	.cl_axi_mstr_bus(cl_axi_mstr_bus),
+	.cl_axi_mstr_bus_1(cl_axi_mstr_bus_1),
+	.cl_axi_mstr_bus_2(cl_axi_mstr_bus_2),
+	.cl_axi_mstr_bus_3(cl_axi_mstr_bus_3),
+	.cl_axi_mstr_bus_4(cl_axi_mstr_bus_4),
 	
 	.lcl_cl_sh_ddra(lcl_cl_sh_ddra),
 	.lcl_cl_sh_ddrb(lcl_cl_sh_ddrb),
@@ -368,7 +367,7 @@ cl_dma_pcis_slv CL_DMA_PCIS_SLV (
 );
 
 // DDR Stats
-localparam NUM_CFG_STGS_CL_DDR_ATG = 8;
+localparam NUM_CFG_STGS_CL_DDR_ATG = 4;
 
 logic[7:0] sh_ddr_stat_addr_q[2:0];
 logic[2:0] sh_ddr_stat_wr_q;
@@ -490,11 +489,6 @@ assign {lcl_cl_sh_ddrd.rdata, lcl_cl_sh_ddrb.rdata, lcl_cl_sh_ddra.rdata} = {sh_
 assign {lcl_cl_sh_ddrd.rlast, lcl_cl_sh_ddrb.rlast, lcl_cl_sh_ddra.rlast} = sh_cl_ddr_rlast_2d;
 assign {lcl_cl_sh_ddrd.rvalid, lcl_cl_sh_ddrb.rvalid, lcl_cl_sh_ddra.rvalid} = sh_cl_ddr_rvalid_2d;
 assign cl_sh_ddr_rready_2d = {lcl_cl_sh_ddrd.rready, lcl_cl_sh_ddrb.rready, lcl_cl_sh_ddra.rready};
-
-/*
-(* dont_touch = "true" *) logic sh_ddr_sync_rst_n;
-lib_pipe #(.WIDTH(1), .STAGES(4)) SH_DDR_SLC_RST_N (.clk(global_clk), .rst_n(1'b1), .in_bus(global_rst_n), .out_bus(sh_ddr_sync_rst_n));
-*/
 
 sh_ddr #(
 	.DDR_A_PRESENT(1),
@@ -625,6 +619,150 @@ sh_ddr #(
 	.ddr_sh_stat_rdata2 (ddr_sh_stat_rdata_q[2]),
 	.ddr_sh_stat_int2   (ddr_sh_stat_int_q[2])
 );
+
+// DRAM SoftReg control interface
+SoftRegReq  DRAM_softreg_req;
+SoftRegReq  DRAM_softreg_req_buf;
+logic       DRAM_softreg_req_grant;
+
+SoftRegResp DRAM_softreg_resp_buf[3:0];
+SoftRegResp DRAM_softreg_resp_buf2[3:0];
+SoftRegResp DRAM_softreg_resp_buf3[1:0];
+SoftRegResp DRAM_softreg_resp_buf4;
+SoftRegResp DRAM_softreg_resp;
+logic       DRAM_softreg_resp_grant;
+
+AXIL2SR
+axil2sr_DRAM_inst
+(
+	// General Signals
+	.clk(global_clk),
+	.rst(global_rst),
+	
+	// Write Address
+	.sh_awvalid(sh_bar1_awvalid),
+	.sh_awaddr(sh_bar1_awaddr),
+	.sh_awready(bar1_sh_awready),
+	
+	//Write data
+	.sh_wvalid(sh_bar1_wvalid),
+	.sh_wdata(sh_bar1_wdata),
+	.sh_wstrb(sh_bar1_wstrb),
+	.sh_wready(bar1_sh_wready),
+	
+	//Write response
+	.sh_bvalid(bar1_sh_bvalid),
+	.sh_bresp(bar1_sh_bresp),
+	.sh_bready(sh_bar1_bready),
+	
+	//Read address
+	.sh_arvalid(sh_bar1_arvalid),
+	.sh_araddr(sh_bar1_araddr),
+	.sh_arready(bar1_sh_arready),
+	
+	//Read data/response
+	.sh_rvalid(bar1_sh_rvalid),
+	.sh_rdata(bar1_sh_rdata),
+	.sh_rresp(bar1_sh_rresp),
+	.sh_rready(sh_bar1_rready),
+	
+	// Interface to SoftReg
+	// Requests
+	.softreg_req(DRAM_softreg_req),
+	.softreg_req_grant(DRAM_softreg_req_grant),
+	// Responses
+	.softreg_resp(DRAM_softreg_resp),
+	.softreg_resp_grant(DRAM_softreg_resp_grant)
+);
+assign DRAM_softreg_req_grant = 1;
+
+lib_pipe #(.WIDTH($bits(SoftRegReq)), .STAGES(3)) PIPE_DRAM_softreg_req (
+	.clk(global_clk),
+	.rst_n(global_rst_n),
+	.in_bus(DRAM_softreg_req),
+	.out_bus(DRAM_softreg_req_buf)
+);
+
+DRAM_Loopback #(
+	.SR_ID(0)
+) DMLb_1 (
+	// General signals
+	.clk(global_clk),
+	.rst(global_rst),
+	
+	.cl_axi_mstr_bus(cl_axi_mstr_bus_1),
+	
+	// SoftReg control interface
+	.softreg_req(DRAM_softreg_req_buf),
+	.softreg_resp(DRAM_softreg_resp_buf[0])
+);
+
+DRAM_Loopback #(
+	.SR_ID(1)
+) DMLb_2 (
+	// General signals
+	.clk(global_clk),
+	.rst(global_rst),
+	
+	.cl_axi_mstr_bus(cl_axi_mstr_bus_2),
+	
+	// SoftReg control interface
+	.softreg_req(DRAM_softreg_req_buf),
+	.softreg_resp(DRAM_softreg_resp_buf[1])
+);
+
+DRAM_Loopback #(
+	.SR_ID(2)
+) DMLb_3 (
+	// General signals
+	.clk(global_clk),
+	.rst(global_rst),
+	
+	.cl_axi_mstr_bus(cl_axi_mstr_bus_3),
+	
+	// SoftReg control interface
+	.softreg_req(DRAM_softreg_req_buf),
+	.softreg_resp(DRAM_softreg_resp_buf[2])
+);
+
+DRAM_Loopback #(
+	.SR_ID(3)
+) DMLb_4 (
+	// General signals
+	.clk(global_clk),
+	.rst(global_rst),
+	
+	.cl_axi_mstr_bus(cl_axi_mstr_bus_4),
+	
+	// SoftReg control interface
+	.softreg_req(DRAM_softreg_req_buf),
+	.softreg_resp(DRAM_softreg_resp_buf[3])
+);
+
+always @(posedge global_clk) begin
+	if (global_rst_n) begin
+		DRAM_softreg_resp_buf2[0] <= DRAM_softreg_resp_buf[0];
+		DRAM_softreg_resp_buf2[1] <= DRAM_softreg_resp_buf[1];
+		DRAM_softreg_resp_buf2[2] <= DRAM_softreg_resp_buf[2];
+		DRAM_softreg_resp_buf2[3] <= DRAM_softreg_resp_buf[3];
+		
+		DRAM_softreg_resp_buf3[0] <= DRAM_softreg_resp_buf2[0] | DRAM_softreg_resp_buf2[1];
+		DRAM_softreg_resp_buf3[1] <= DRAM_softreg_resp_buf2[2] | DRAM_softreg_resp_buf2[3];
+		
+		DRAM_softreg_resp_buf4 <= DRAM_softreg_resp_buf3[0] | DRAM_softreg_resp_buf3[1];
+	end else begin
+		DRAM_softreg_resp_buf2[0] <= '0;
+		DRAM_softreg_resp_buf2[1] <= '0;
+		DRAM_softreg_resp_buf2[2] <= '0;
+		DRAM_softreg_resp_buf2[3] <= '0;
+		
+		DRAM_softreg_resp_buf3[0] <= '0;
+		DRAM_softreg_resp_buf3[1] <= '0;
+		
+		DRAM_softreg_resp_buf4 <= '0;
+	end
+end
+assign DRAM_softreg_resp = DRAM_softreg_resp_buf4;
 
 //------------------------------------
 // App and port enables

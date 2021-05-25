@@ -26,7 +26,7 @@ set CL_MODULE cl_aos
 #################################################
 set timestamp           [lindex $argv  0]
 #set strategy            [lindex $argv  1]
-set strategy            "BASIC"
+set strategy            "CONGESTION"
 set hdk_version         [lindex $argv  2]
 set shell_version       [lindex $argv  3]
 set device_id           [lindex $argv  4]

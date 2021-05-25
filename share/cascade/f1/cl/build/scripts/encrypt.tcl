@@ -84,9 +84,11 @@ file copy -force $CL_DIR/design/aos/PCIS_Loopback.sv $TARGET_DIR
 file copy -force $CL_DIR/design/aos/PCIS_Write_Packet.sv $TARGET_DIR
 file copy -force $CL_DIR/design/aos/PCIS_Read_Packet.sv $TARGET_DIR
 file copy -force $CL_DIR/design/aos/PCIM_Loopback.sv $TARGET_DIR
-# DMA
+# DRAM, DMA, TLB
 file copy -force $CL_DIR/design/aos/cl_dram_dma_pkg.sv $TARGET_DIR
 file copy -force $CL_DIR/design/aos/cl_dma_pcis_slv.sv $TARGET_DIR
+file copy -force $CL_DIR/design/aos/DRAM_Loopback.sv $TARGET_DIR
+file copy -force $CL_DIR/design/aos/axi_tlb.sv $TARGET_DIR
 # F1 interfaces
 file copy -force $CL_DIR/design/aos/AXIL2SR.sv $TARGET_DIR
 file copy -force $CL_DIR/design/aos/AXIL2SR_Extended.sv $TARGET_DIR

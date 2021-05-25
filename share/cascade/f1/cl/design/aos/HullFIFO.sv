@@ -1,6 +1,6 @@
 /*
 
-    Author: Ahmed Khawaja
+    Author: Ahmed Khawaja and Joshua Landgraf
     
     This module abstracts the different types of FIFOs that can be used in the system
     
@@ -8,7 +8,7 @@
     0        SoftFIFO (in pure verilog)
     1        Catapult Hardened FIFO
     2        F1 Shifting flop FIFO
-	3        F1 BRAM FIFO (unimplemented)
+	3        Xilinx Auto FIFO
 
 */
 
@@ -87,8 +87,43 @@ module HullFIFO #(parameter TYPE = 0, WIDTH = 32, LOG_DEPTH = 2)
 				.data_valid(data_valid)
 			);
 			assign empty = !data_valid;
-        end else if (TYPE == 3) begin : Hull_F1_BRAM_FIFO
-			// use the bram_2rw module in shell/design/lib/bram_2rw.sv
+		end else if (TYPE == 3) begin : Hull_XPM_AUTO_FIFO
+			wire xaf_empty;
+			wire xaf_full;
+			wire xaf_rd_rst_busy;
+			wire xaf_wr_rst_busy;
+			wire xaf_rd_en;
+			wire xaf_wr_en;
+			
+			xpm_fifo_sync #(
+				.DOUT_RESET_VALUE("0"),
+				.ECC_MODE("no_ecc"),
+				.FIFO_MEMORY_TYPE("auto"),
+				.FIFO_READ_LATENCY(0),
+				.FIFO_WRITE_DEPTH(1 << LOG_DEPTH),
+				.FULL_RESET_VALUE(1),
+				.READ_DATA_WIDTH(WIDTH),
+				.READ_MODE("fwft"),
+				.USE_ADV_FEATURES("0000"),
+				.WAKEUP_TIME(0),
+				.WRITE_DATA_WIDTH(WIDTH)
+			) xpm_auto_fifo (
+				.dout(q),
+				.empty(xaf_empty),
+				.full(xaf_full),
+				.rd_rst_busy(xaf_rd_rst_busy),
+				.wr_rst_busy(xaf_wr_rst_busy),
+				.din(data),
+				.rd_en(xaf_rd_en),
+				.rst(~reset_n),
+				.wr_clk(clock),
+				.wr_en(xaf_wr_en)
+			);
+			
+			assign empty = xaf_rd_rst_busy || xaf_wr_rst_busy || xaf_empty;
+			assign full  = xaf_rd_rst_busy || xaf_wr_rst_busy || xaf_full;
+			assign xaf_rd_en = reset_n && !xaf_rd_rst_busy && !xaf_wr_rst_busy && rdreq;
+			assign xaf_wr_en = reset_n && !xaf_rd_rst_busy && !xaf_wr_rst_busy && wrreq;
 		end
     endgenerate
 
