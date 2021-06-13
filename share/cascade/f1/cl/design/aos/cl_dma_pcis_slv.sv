@@ -20,6 +20,9 @@ module cl_dma_pcis_slv
     input aclk,
     input aresetn,
     
+    input  SoftRegReq  sys_softreg_req,
+    output SoftRegResp sys_softreg_resp,
+    
     axi_bus_t.master sh_cl_dma_pcis_bus,
     axi_bus_t.master cl_axi_mstr_bus_1,
     axi_bus_t.master cl_axi_mstr_bus_2,
@@ -625,42 +628,58 @@ axi_register_slice MSTR_4_AXL_REG_SLC_2 (
 //----------------------------
 // axi address translation modules
 //----------------------------
+SoftRegResp sys_softreg_resp_buf [3:0];
+
 axi_tlb #(
     .SR_ID(0)
-) tlb1 (
+) tlb0 (
     .clk(aclk),
     .rst(~aresetn),
+    
+    .sr_req(sys_softreg_req),
+    .sr_resp(sys_softreg_resp_buf[0]),
 
     .virt_m(cl_axi_mstr_bus_1_q2),
     .phys_s(cl_axi_mstr_bus_1_t)
 );
 axi_tlb #(
     .SR_ID(1)
-) tlb2 (
+) tlb1 (
     .clk(aclk),
     .rst(~aresetn),
+    
+    .sr_req(sys_softreg_req),
+    .sr_resp(sys_softreg_resp_buf[1]),
 
     .virt_m(cl_axi_mstr_bus_2_q2),
     .phys_s(cl_axi_mstr_bus_2_t)
 );
 axi_tlb #(
     .SR_ID(2)
-) tlb3 (
+) tlb2 (
     .clk(aclk),
     .rst(~aresetn),
+    
+    .sr_req(sys_softreg_req),
+    .sr_resp(sys_softreg_resp_buf[2]),
 
     .virt_m(cl_axi_mstr_bus_3_q2),
     .phys_s(cl_axi_mstr_bus_3_t)
 );
 axi_tlb #(
     .SR_ID(3)
-)  tlb4 (
+)  tlb3 (
     .clk(aclk),
     .rst(~aresetn),
+    
+    .sr_req(sys_softreg_req),
+    .sr_resp(sys_softreg_resp_buf[3]),
 
     .virt_m(cl_axi_mstr_bus_4_q2),
     .phys_s(cl_axi_mstr_bus_4_t)
 );
+assign sys_softreg_resp = sys_softreg_resp_buf[0] | sys_softreg_resp_buf[1] |
+                          sys_softreg_resp_buf[2] | sys_softreg_resp_buf[3];
 
 
 //----------------------------

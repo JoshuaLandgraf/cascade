@@ -547,18 +547,19 @@ module pte_helper #(
 	input [63:0] pte,
 	input [52:0] vpn,
 	
-	output [51:0] rpn,
-	output ok
+	output found,
+	output ok,
+	output [51:0] rpn
 );
 
 wire prsnt_ok = pte[0];	// entry present
 wire rw_ok = vpn[0] ? 1'b1 : pte[1];  // entry writable if necessary
 wire vpn_ok = vpn[52:1] == {16'h0000, pte[61:26]};  // vpn matches pte
 wire id_ok = SR_ID == pte[63:62];  // application ID matches
-wire all_ok = prsnt_ok && rw_ok && vpn_ok && id_ok;
 
-assign rpn = all_ok ? {28'h0000000, pte[25:2]} : 52'h0000000000000;
-assign ok = all_ok;
+assign found = prsnt_ok && vpn_ok && id_ok;
+assign ok = found ? rw_ok : 1'b0;
+assign rpn = found ? {28'h0000000, pte[25:2]} : 52'h0000000000000;
 
 endmodule
 
@@ -574,7 +575,10 @@ module tlb_top #(
 	tlb_bus_t.master tlb_read,
 	tlb_bus_t.master tlb_write,
 	
-	axi_bus_t.slave  phys_tlb_s
+	axi_bus_t.slave  phys_tlb_s,
+	
+	input  SoftRegReq  sr_req,
+	output SoftRegResp sr_resp
 );
 localparam FIFO_LD = 5;
 
@@ -687,28 +691,40 @@ HullFIFO #(
 );
 
 //// Process PTEs
-reg [51:0] resp_page_num [7:0];
-reg [51:0] resp_page_num_out;
+reg resp_found [7:0];
+reg resp_found_out;
 reg resp_ok [7:0];
 reg resp_ok_out;
+reg [51:0] resp_page_num [7:0];
+reg [51:0] resp_page_num_out;
 
-genvar i;
+genvar g;
 generate
-	for (i = 0; i < 8; i += 1) begin: pte_helpers
+	for (g = 0; g < 8; g += 1) begin: pte_helpers
 		pte_helper #(
 			.SR_ID(SR_ID)
 		) pteh (
-			.pte(ptef_q[64*i +: 64]),
+			.pte(ptef_q[64*g +: 64]),
 			.vpn(vpnf_q),
-			.rpn(resp_page_num[i]),
-			.ok(resp_ok[i])
+			.found(resp_found[g]),
+			.ok(resp_ok[g]),
+			.rpn(resp_page_num[g])
 		);
 	end
 endgenerate
 
-assign resp_page_num_out = resp_page_num[0] | resp_page_num[1] | resp_page_num[2] | resp_page_num[3] |
-                           resp_page_num[4] | resp_page_num[5] | resp_page_num[6] | resp_page_num[7];
-assign resp_ok_out = resp_ok[0] | resp_ok[1] | resp_ok[2] | resp_ok[3] | resp_ok[4] | resp_ok[5] | resp_ok[6] | resp_ok[7];
+integer i;
+always_comb begin
+	resp_found_out = resp_found[0];
+	resp_ok_out = resp_ok[0];
+	resp_page_num_out = resp_page_num[0];
+	
+	for (i = 1; i < 8; i += 1) begin: pte_merge
+		resp_found_out |= resp_found[i];
+		resp_ok_out |= resp_ok[i];
+		resp_page_num_out |= resp_page_num[i];
+	end
+end
 
 //// Return results
 assign vpnf_rdreq = !ptef_empty && (vpnf_q[0] ? tlb_read.resp_ready : tlb_write.resp_ready);
@@ -732,8 +748,8 @@ module axi_tlb #(
 	input clk,
 	input rst,
 	
-	//SoftRegReq  sr_req,
-	//SoftRegResp sr_resp,
+	input  SoftRegReq  sr_req,
+	output SoftRegResp sr_resp,
 	
 	axi_bus_t.master virt_m,
 	axi_bus_t.slave  phys_s
@@ -804,7 +820,10 @@ tlb_top #(
 	.tlb_read(tlb_read),
 	.tlb_write(tlb_write),
 	
-	.phys_tlb_s(phys_tlb)
+	.phys_tlb_s(phys_tlb),
+	
+	.sr_req(sr_req),
+	.sr_resp(sr_resp)
 );
 phys_multiplexer pm (
 	.clk(clk),
