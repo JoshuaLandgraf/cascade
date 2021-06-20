@@ -160,10 +160,7 @@ axi_bus_t axi_bus_tied();
 
 axi_bus_t sh_cl_dma_pcis_bus();
 
-axi_bus_t cl_axi_mstr_bus_1();
-axi_bus_t cl_axi_mstr_bus_2();
-axi_bus_t cl_axi_mstr_bus_3();
-axi_bus_t cl_axi_mstr_bus_4();
+axi_bus_t cl_axi_mstr_bus [3:0] ();
 
 axi_bus_t cl_sh_pcim_bus();
 axi_bus_t cl_sh_ddr_bus();
@@ -260,10 +257,10 @@ cl_dma_pcis_slv CL_DMA_PCIS_SLV (
 	.sys_softreg_resp(sys_softreg_resp),
 	
 	.sh_cl_dma_pcis_bus(sh_cl_dma_pcis_bus),
-	.cl_axi_mstr_bus_1(cl_axi_mstr_bus_1),
-	.cl_axi_mstr_bus_2(cl_axi_mstr_bus_2),
-	.cl_axi_mstr_bus_3(cl_axi_mstr_bus_3),
-	.cl_axi_mstr_bus_4(cl_axi_mstr_bus_4),
+	.cl_axi_mstr_bus_1(cl_axi_mstr_bus[0]),
+	.cl_axi_mstr_bus_2(cl_axi_mstr_bus[1]),
+	.cl_axi_mstr_bus_3(cl_axi_mstr_bus[2]),
+	.cl_axi_mstr_bus_4(cl_axi_mstr_bus[3]),
 	
 	.lcl_cl_sh_ddra(lcl_cl_sh_ddra),
 	.lcl_cl_sh_ddrb(lcl_cl_sh_ddrb),
@@ -783,7 +780,7 @@ generate
 				.clk(global_clk),
 				.rst(global_rst),
 				
-				.cl_axi_mstr_bus(cl_axi_mstr_bus_1),
+				.cl_axi_mstr_bus(cl_axi_mstr_bus[0]),
 				
 				// SoftReg control interface
 				.softreg_req(DRAM_softreg_req_buf),
@@ -797,7 +794,7 @@ generate
 				.clk(global_clk),
 				.rst(global_rst),
 				
-				.cl_axi_mstr_bus(cl_axi_mstr_bus_2),
+				.cl_axi_mstr_bus(cl_axi_mstr_bus[1]),
 				
 				// SoftReg control interface
 				.softreg_req(DRAM_softreg_req_buf),
@@ -811,7 +808,7 @@ generate
 				.clk(global_clk),
 				.rst(global_rst),
 				
-				.cl_axi_mstr_bus(cl_axi_mstr_bus_3),
+				.cl_axi_mstr_bus(cl_axi_mstr_bus[2]),
 				
 				// SoftReg control interface
 				.softreg_req(DRAM_softreg_req_buf),
@@ -825,7 +822,7 @@ generate
 				.clk(global_clk),
 				.rst(global_rst),
 				
-				.cl_axi_mstr_bus(cl_axi_mstr_bus_4),
+				.cl_axi_mstr_bus(cl_axi_mstr_bus[3]),
 				
 				// SoftReg control interface
 				.softreg_req(DRAM_softreg_req_buf),
@@ -856,6 +853,21 @@ generate
 				end
 			end
 			assign app_softreg_resp[0] = DRAM_softreg_resp_buf4;
+		end else if (F1_CONFIG_APPS == 6) begin : verilog_app
+			VerilogWrapper #(
+				.app_num(app_num)
+			) vw (
+				// General signals
+				.clk(global_clk),
+				.rst(global_rst),
+				
+				// Virtual memory interface
+				.axi_m(cl_axi_mstr_bus[app_num]),
+				
+				// SoftReg control interface
+				.softreg_req(app_softreg_req[app_num]),
+				.softreg_resp(app_softreg_resp[app_num])
+			);
 		end
 	end
 endgenerate

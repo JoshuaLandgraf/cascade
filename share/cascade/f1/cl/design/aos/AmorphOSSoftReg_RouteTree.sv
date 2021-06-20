@@ -30,7 +30,7 @@ module AOS_SR_1_to_2#(parameter SELECT_BIT_INDEX = 0, FIFO_LOG_DEPTH = 2, FIFO_T
     wire        buffer_sr_req_FIFO_empty;
     SoftRegReq  buffer_sr_req_FIFO_head;
 	logic[5:0] selector_bits; // bits 5-0 of the address (inclusive)
-	assign selector_bits = buffer_sr_req_FIFO_head.addr[5:0];
+	assign selector_bits = buffer_sr_req_FIFO_head.addr[8:3];
 	
     HullFIFO
     #(
@@ -52,9 +52,6 @@ module AOS_SR_1_to_2#(parameter SELECT_BIT_INDEX = 0, FIFO_LOG_DEPTH = 2, FIFO_T
 
 	// Route from the buffer to the correct port
 	always_comb begin
-		// default is to do nothing
-		buffer_sr_req_FIFO_enq = 1'b0;
-		buffer_sr_req_FIFO_deq = 1'b0;
 		// Default values for the output ports
 		sr_req_out_0.valid   = 1'b0;
 		sr_req_out_0.isWrite = 1'b0;
@@ -230,7 +227,7 @@ generate
 			assign sr_req_to_app[app_num].isWrite = connects[NUM_LAYERS-1][app_num].isWrite;
 			assign sr_req_to_app[app_num].data    = connects[NUM_LAYERS-1][app_num].data;
 			//Mask off the routing bits to the app
-			assign sr_req_to_app[app_num].addr    = {{6{1'b0}}, connects[NUM_LAYERS-1][app_num].addr[31:6]}; // bits 5:0 are the routing bits
+			assign sr_req_to_app[app_num].addr    = {8'b0, connects[NUM_LAYERS-1][app_num].addr[31:11], connects[NUM_LAYERS-1][app_num].addr[2:0]}; // bits 10:3 are the routing bits
 		end
 	end // check if SR_NUM_APPS == 1
 

@@ -51,7 +51,7 @@ parameter F1_ADDR_SHIFT_XLATE = $clog2(NUM_AMI_INSTS);
 // SoftReg interface over AXI-Lite
 parameter F1_AXIL_USE_EXTENDER = 0;
 //
-parameter F1_AXIL_USE_ROUTE_TREE = 0;
+parameter F1_AXIL_USE_ROUTE_TREE = 1;
 // Write addresses coming from the F1 Shell
 parameter F1_AXIL_wr_addr_FIFO_Type  = 0;
 parameter F1_AXIL_wr_addr_FIFO_Depth = 2;
