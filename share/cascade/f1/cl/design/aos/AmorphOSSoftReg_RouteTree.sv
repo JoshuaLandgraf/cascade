@@ -61,6 +61,7 @@ module AOS_SR_1_to_2#(parameter SELECT_BIT_INDEX = 0, FIFO_LOG_DEPTH = 2, FIFO_T
 		sr_req_out_1.isWrite = 1'b0;
 		sr_req_out_1.addr    = 0;
 		sr_req_out_1.data    = 0;
+		buffer_sr_req_FIFO_deq = 1'b0;
 		// Route the head of the queue
 		if (buffer_sr_req_FIFO_head.valid && !buffer_sr_req_FIFO_empty) begin
 			// route to port 0

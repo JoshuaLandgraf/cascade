@@ -81,11 +81,11 @@ assign global_rst   = !pipe_rst_n;
 */
 
 // AXIL2SR to AmorphOS System
-SoftRegReq  sys_softreg_req;
+SoftRegReq  sys_softreg_req[3:0];
 SoftRegReq  sys_softreg_req_buf;
 logic       sys_softreg_req_grant;
 
-SoftRegResp sys_softreg_resp;
+SoftRegResp sys_softreg_resp[3:0];
 SoftRegResp sys_softreg_resp_buf;
 logic       sys_softreg_resp_grant;
 
@@ -133,18 +133,19 @@ axil2sr_inst_sys
 );
 assign sys_softreg_req_grant = 1;
 
-lib_pipe #(.WIDTH($bits(SoftRegReq)), .STAGES(2)) PIPE_sys_softreg_req (
+AmorphOSSoftReg_RouteTree #(.SR_NUM_APPS(4))
+softreg_route_tree_inst_sys
+(
+	// User clock and reset
 	.clk(global_clk),
-	.rst_n(global_rst_n),
-	.in_bus(sys_softreg_req_buf),
-	.out_bus(sys_softreg_req)
-);
-
-lib_pipe #(.WIDTH($bits(SoftRegResp)), .STAGES(2)) PIPE_sys_softreg_resp (
-	.clk(global_clk),
-	.rst_n(global_rst_n),
-	.in_bus(sys_softreg_resp),
-	.out_bus(sys_softreg_resp_buf)
+	.rst(global_rst),
+	//.app_enable(1),
+	// Interface to Host
+	.softreg_req(sys_softreg_req_buf),
+	.softreg_resp(sys_softreg_resp_buf),
+	// Virtualized interface
+	.app_softreg_req(sys_softreg_req),
+	.app_softreg_resp(sys_softreg_resp)
 );
 
 
@@ -853,10 +854,10 @@ generate
 				end
 			end
 			assign app_softreg_resp[0] = DRAM_softreg_resp_buf4;
-		end else if (F1_CONFIG_APPS == 6) begin : verilog_app
-			VerilogWrapper #(
+		end else if (F1_CONFIG_APPS == 6) begin : multi_aes
+			AESWrapper #(
 				.app_num(app_num)
-			) vw (
+			) aes_inst (
 				// General signals
 				.clk(global_clk),
 				.rst(global_rst),

@@ -726,15 +726,109 @@ always_comb begin
 	end
 end
 
+//// Record result
+// processed PTE signals
+wire ppf_wrreq;
+wire [54:0] ppf_data;
+wire ppf_full;
+wire [54:0] ppf_q;
+wire ppf_empty;
+wire ppf_rdreq;
+
+// host request signals
+wire hrqf_wrreq;
+wire [52:0] hrqf_data;
+wire hrqf_full;
+wire [52:0] hrqf_q;
+wire hrqf_empty;
+wire hrqf_rdreq;
+
+// assigns
+assign ppf_data  = {resp_page_num_out, resp_ok_out, vpnf_q[0], resp_found_out};
+assign hrqf_data = vpnf_q;
+
+assign vpnf_rdreq = !ptef_empty && !ppf_full && !hrqf_full;
+assign ptef_rdreq = !vpnf_empty && !ppf_full && !hrqf_full;
+assign ppf_wrreq  = !ptef_empty && !vpnf_empty && !hrqf_full;
+assign hrqf_wrreq = !ptef_empty && !vpnf_empty && !ppf_full && !resp_found_out;
+//assign ppf_rdreq  = TODO; // will assign later
+//assign hrqf_rdreq = TODO; // will assign later
+
+// FIFO instantiations
+HullFIFO #(
+    .TYPE(3),
+    .WIDTH(55),
+    .LOG_DEPTH(4)
+) proc_pte_fifo (
+    .clock(clk),
+    .reset_n(~rst),
+    .wrreq(ppf_wrreq),
+    .data(ppf_data),
+    .full(ppf_full),
+    .q(ppf_q),
+    .empty(ppf_empty),
+    .rdreq(ppf_rdreq)
+);
+HullFIFO #(
+    .TYPE(3),
+    .WIDTH(53),
+    .LOG_DEPTH(4)
+) host_req_fifo (
+    .clock(clk),
+    .reset_n(~rst),
+    .wrreq(hrqf_wrreq),
+    .data(hrqf_data),
+    .full(hrqf_full),
+    .q(hrqf_q),
+    .empty(hrqf_empty),
+    .rdreq(hrqf_rdreq)
+);
+
+//// SoftReg interface
+// host response signals
+wire hrpf_wrreq;
+wire [52:0] hrpf_data;
+wire hrpf_full;
+wire [52:0] hrpf_q;
+wire hrpf_empty;
+wire hrpf_rdreq;
+
+// assigns
+assign sr_resp.data = {10'h000, hrqf_q, !hrqf_empty};
+assign sr_resp.valid = sr_req.valid && !sr_req.isWrite;
+assign hrqf_rdreq = sr_req.valid && !sr_req.isWrite;
+
+assign hrpf_data = sr_req.data[52:0];
+assign hrpf_wrreq = sr_req.valid && sr_req.isWrite;
+//assign hrpf_rdreq = TODO; // will assign later
+
+// host response FIFO instantiation
+HullFIFO #(
+    .TYPE(3),
+    .WIDTH(53),
+    .LOG_DEPTH(4)
+) host_resp_fifo (
+    .clock(clk),
+    .reset_n(~rst),
+    .wrreq(hrpf_wrreq),
+    .data(hrpf_data),
+    .full(hrpf_full),
+    .q(hrpf_q),
+    .empty(hrpf_empty),
+    .rdreq(hrpf_rdreq)
+);
+
 //// Return results
-assign vpnf_rdreq = !ptef_empty && (vpnf_q[0] ? tlb_read.resp_ready : tlb_write.resp_ready);
-assign ptef_rdreq = !vpnf_empty && (vpnf_q[0] ? tlb_read.resp_ready : tlb_write.resp_ready);
-assign tlb_read.resp_page_num = resp_page_num_out;
-assign tlb_write.resp_page_num = resp_page_num_out;
-assign tlb_read.resp_ok = resp_ok_out;
-assign tlb_write.resp_ok = resp_ok_out;
-assign tlb_read.resp_valid = vpnf_q[0] && !vpnf_empty && !ptef_empty;
-assign tlb_write.resp_valid = !vpnf_q[0] && !vpnf_empty && !ptef_empty;
+// assigns
+wire tlb_resp_ready = ppf_q[1] ? tlb_read.resp_ready : tlb_write.resp_ready;
+assign ppf_rdreq = (ppf_q[0] || !hrpf_empty) && tlb_resp_ready;
+assign hrpf_rdreq = !ppf_empty && !ppf_q[0] && tlb_resp_ready;
+
+wire [52:0] tlb_resp = ppf_q[0] ? ppf_q[54:2] : hrpf_q;
+assign {tlb_read.resp_page_num, tlb_read.resp_ok} = tlb_resp;
+assign {tlb_write.resp_page_num, tlb_write.resp_ok} = tlb_resp;
+assign tlb_read.resp_valid = ppf_q[1] && !ppf_empty && (ppf_q[0] || !hrpf_empty);
+assign tlb_write.resp_valid = !ppf_q[1] && !ppf_empty && (ppf_q[0] || !hrpf_empty);
 
 endmodule
 
