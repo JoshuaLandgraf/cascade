@@ -102,6 +102,12 @@ file copy -force $CL_DIR/design/aos/AmorphOSSoftReg_RouteTree.sv $TARGET_DIR
 file copy -force $CL_DIR/design/UserParams.sv $TARGET_DIR
 file copy -force $CL_DIR/design/cascade_wrapper.sv $TARGET_DIR
 file copy -force $CL_DIR/design/program_logic.v $TARGET_DIR
+#AES
+file copy -force $CL_DIR/design/aes/aes_wrapper.sv $TARGET_DIR
+file copy -force $CL_DIR/design/aes/aes_top.v $TARGET_DIR
+file copy -force $CL_DIR/design/aes/aes_256.v $TARGET_DIR
+file copy -force $CL_DIR/design/aes/round.v $TARGET_DIR
+file copy -force $CL_DIR/design/aes/table.v $TARGET_DIR
 # Top level module
 file copy -force $CL_DIR/design/cl_aos.sv                      $TARGET_DIR
 

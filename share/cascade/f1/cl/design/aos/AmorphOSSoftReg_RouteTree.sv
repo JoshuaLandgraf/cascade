@@ -10,7 +10,7 @@ import ShellTypes::*;
 import AMITypes::*;
 import AOSF1Types::*;
 
-module AOS_SR_1_to_2#(parameter SELECT_BIT_INDEX = 0, FIFO_LOG_DEPTH = 2, FIFO_TYPE = 0)
+module AOS_SR_1_to_2#(parameter SELECT_BIT_INDEX = 0, FIFO_LOG_DEPTH = 1, FIFO_TYPE = 0)
 (
     input                               clk,
     input                               rst,
@@ -86,7 +86,7 @@ module AOS_SR_1_to_2#(parameter SELECT_BIT_INDEX = 0, FIFO_LOG_DEPTH = 2, FIFO_T
 	
 endmodule
 
-module AOS_SR_2_to_1#(parameter FIFO_LOG_DEPTH = 2, FIFO_TYPE = 0)
+module AOS_SR_2_to_1#(parameter FIFO_LOG_DEPTH = 1, FIFO_TYPE = 0)
 (
     input                               clk,
     input                               rst,

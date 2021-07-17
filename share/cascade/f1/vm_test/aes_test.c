@@ -14,6 +14,8 @@ struct aes_config {
     uint64_t src_addr;
     uint64_t dst_addr;
     uint64_t num_words;
+    uint64_t rd_credits;
+    uint64_t wr_credits;
 } aes_config;
 
 void start_run(uint64_t src) {
@@ -33,6 +35,12 @@ void start_run(uint64_t src) {
     reg_addr += reg_inc;
     rc |= fpga_pci_poke64(pci_bar_handle, reg_addr, aes_config.dst_addr);
     reg_addr += reg_inc;
+    //rc |= fpga_pci_poke64(pci_bar_handle, reg_addr, aes_config.num_words);
+    reg_addr += reg_inc;
+    rc |= fpga_pci_poke64(pci_bar_handle, reg_addr, aes_config.rd_credits);
+    reg_addr += reg_inc;
+    rc |= fpga_pci_poke64(pci_bar_handle, reg_addr, aes_config.wr_credits);
+    reg_addr -= 2*reg_inc;
     rc |= fpga_pci_poke64(pci_bar_handle, reg_addr, aes_config.num_words);
     
     if (rc) printf("Poke failure\n");
@@ -44,8 +52,10 @@ void end_run(uint64_t src) {
     
     uint64_t words_left = 1;
     do {
-        usleep(1);
+        usleep(100);
+        //usleep(10);
         rc |= fpga_pci_peek64(pci_bar_handle, reg_addr, &words_left);
+        //printf("words left: %lu\n", words_left);
     } while (words_left > 0);
     
     if (rc) printf("Peek failure\n");
@@ -61,15 +71,19 @@ int main(void) {
     
     uint64_t src_addrs[4] = {0x0, 0x400000000, 0x200000000, 0x600000000};
     uint64_t dst_addrs[4] = {0x800000000, 0xC00000000, 0xA00000000, 0xE00000000};
+    //uint64_t src_addrs[4] = {0x400000000, 0x400000000, 0x200000000, 0x600000000};
+    //uint64_t dst_addrs[4] = {0x800000000, 0xC00000000, 0xA00000000, 0xE00000000};
     
     const uint64_t total_words_max = (uint64_t{30} << 30) / 64;
     
     aes_config.key[0] = 1;
     aes_config.key[1] = 2;
     aes_config.key[2] = 3;
-    aes_config.key[3] = 4;    
+    aes_config.key[3] = 4;
+    aes_config.rd_credits = 8;
+    aes_config.wr_credits = 8;
 
-    for (uint64_t num_aes = 4; num_aes <= 4; num_aes *= 2) {
+    for (uint64_t num_aes = 1; num_aes <= 4; num_aes *= 2) {
         uint64_t total_words = (2<<20);
         //for (uint64_t total_words = (2<<20); total_words < total_words_max; total_words *= 2) {
         {

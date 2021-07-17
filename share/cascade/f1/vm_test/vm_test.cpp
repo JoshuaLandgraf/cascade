@@ -58,7 +58,8 @@ void do_io(int fd, bool writing, uint64_t buffer_size, uint64_t xfer_size, uint6
 int main(void) {
     const uint64_t num_apps = 4;
     const bool send_data = true;
-    const bool nvme_file = true;
+    const bool nvme_file = false;
+    const bool timing = false;
     int rc;
     
     signal(SIGINT, handler);
@@ -91,12 +92,12 @@ int main(void) {
         nvme_fd[1] = open("/mnt/nvme0/file1.bin", O_RDWR);
         nvme_fd[2] = open("/mnt/nvme0/file2.bin", O_RDWR);
         nvme_fd[3] = open("/mnt/nvme0/file3.bin", O_RDWR);
+        if (nvme_fd[3] == -1) {
+            printf("Could not open NVME file\n");
+            exit(EXIT_FAILURE);
+        }
+        printf("NVME files opened\n");
     }
-    if (nvme_fd[3] == -1) {
-        printf("Could not open NVME file\n");
-        exit(EXIT_FAILURE);
-    }
-    printf("NVME files opened\n");
     
     // Map BARs
     rc = fpga_mgmt_init();
@@ -138,8 +139,9 @@ int main(void) {
     while (running) {
         for (uint64_t app = 0; app < num_apps; ++app) {
             const uint64_t reg_addr = app*0x8;
+            uint64_t req, resp, entry, nbytes;
             for (uint64_t i = 0; i < 32; ++i) {
-                uint64_t req, resp, entry, nbytes;
+                std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
                 
                 // Get request
                 fpga_pci_peek64(sys_bar_handle, reg_addr, &req);
@@ -169,21 +171,45 @@ int main(void) {
                 }
                 
                 // Do transfer
-                if (send_data) fpga_pci_write_burst(dram_bar_handle, ppn << 12, (uint32_t*)xfer_buf, (1<<10));
-                /*
-                nbytes = pwrite(htd_fd[0], xfer_buf, (4<<10), ppn << 12);
-                if (nbytes != (4<<10)) {
-                    printf("DRAM page write failed with error \"%s\"\n", strerror(errno));
-                    exit(EXIT_FAILURE);
-                }*/
+                if (send_data) {
+                    //fpga_pci_write_burst(dram_bar_handle, ppn << 12, (uint32_t*)xfer_buf, (1<<10));
+                    nbytes = pwrite(htd_fd[0], xfer_buf, (4<<10), ppn << 12);
+                    if (nbytes != (4<<10)) {
+                        printf("DRAM page write failed with error \"%s\"\n", strerror(errno));
+                        exit(EXIT_FAILURE);
+                    }
+                }
                 
                 // Update page entry
+                /*
+                entry = 0;
+                entry |= app;
+                entry <<= 36;
+                entry |= vpn;
+                entry <<= 24;
+                entry |= ppn;
+                entry <<= 1;
+                entry |= uint64_t{rw};
+                entry <<= 1;
+                entry |= 0x1ull;
+                */
                 entry = (app << 62) | (vpn << 26) | (ppn << 2) | (rw << 1) | 0x1;
                 vm_map[app][vpn] = entry;
                 bool upper_half = vpn & (1<<23);
                 uint64_t dram_addr = (vpn&0x7FFFFF)*64 + app*16 + upper_half*8;
                 fpga_pci_poke64(dram_bar_handle, dram_addr, entry);
                 fpga_pci_poke64(sys_bar_handle, reg_addr, resp);
+                
+                std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
+                
+                // Debug
+                //printf("%p -> %p @ %p\n", vpn << 12, ppn << 12, dram_addr);
+                //printf("0x%lX\n", entry);
+                if (timing) {
+                    std::chrono::duration<double> diff = end - start;
+                    double seconds = diff.count();
+                    printf("handling request took %g seconds\n", seconds);
+                }
             }
         }
     }

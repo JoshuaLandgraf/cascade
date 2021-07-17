@@ -30,9 +30,10 @@ logic[LOG_DEPTH:0] counter;
 logic[LOG_DEPTH:0]  new_counter;
 logic[LOG_DEPTH-1:0] rd_ptr, wr_ptr; 
 logic[LOG_DEPTH-1:0]  new_rd_ptr, new_wr_ptr;
+logic empty_reg, new_empty_reg;
 
-assign empty = (counter == 0);
-assign full  = (counter == (1 << LOG_DEPTH));
+assign empty = empty_reg;
+assign full  = counter[LOG_DEPTH];
 assign q     = buffer[rd_ptr];
 
 always @(posedge clock) begin
@@ -40,38 +41,46 @@ always @(posedge clock) begin
 		counter <= 0;
 		rd_ptr  <= 0;
 		wr_ptr  <= 0;
+		empty_reg <= 1;
 	end else begin
 		counter <= new_counter;
 		rd_ptr  <= new_rd_ptr;
 		wr_ptr  <= new_wr_ptr;
+		empty_reg <= new_empty_reg;
 	end
 end
 
 always @(posedge clock) begin
 	if (!full && wrreq) begin
 		buffer[wr_ptr] <= data;
-	end else begin
-		buffer[wr_ptr] <= buffer[wr_ptr];
 	end
 end
 
 always_comb begin
+	if (!full && wrreq) begin
+		new_wr_ptr = wr_ptr + 1;
+	end else begin
+		new_wr_ptr = wr_ptr;
+	end
+
+	if (!empty && rdreq) begin
+		new_rd_ptr = rd_ptr + 1;
+	end else begin
+		new_rd_ptr = rd_ptr;
+	end
+	
 	if ((!full && wrreq) && (!empty && rdreq)) begin
 		new_counter = counter;
-		new_rd_ptr  = rd_ptr + 1;
-		new_wr_ptr  = wr_ptr + 1;
+		new_empty_reg = 0;
 	end	else if (!full && wrreq) begin
 		new_counter = counter + 1;
-		new_rd_ptr  = rd_ptr;
-		new_wr_ptr  = wr_ptr + 1;
+		new_empty_reg = 0;
 	end else if (!empty && rdreq) begin
 		new_counter = counter - 1;
-		new_rd_ptr  = rd_ptr + 1;
-		new_wr_ptr  = wr_ptr;
+		new_empty_reg = (counter == 1);
 	end else begin
 		new_counter = counter;
-		new_rd_ptr = rd_ptr;
-		new_wr_ptr = wr_ptr;
+		new_empty_reg =	empty_reg;
 	end
 end
 

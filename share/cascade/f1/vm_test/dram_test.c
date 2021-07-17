@@ -88,7 +88,7 @@ int main(void) {
             printf("%lu x %lu bytes in %g seconds for %g MiB/s\n", total_count, stride, seconds, ((double)total_bytes)/seconds/(1<<20));
         }
     }
-    sleep(25);
+    sleep(10);
 
     // single source, multi dest
     printf("Single source, multi dest test\n");
@@ -116,7 +116,7 @@ int main(void) {
             printf("%lu x %lu bytes in %g seconds for %g MiB/s\n", total_count, stride, seconds, ((double)total_bytes)/seconds/(1<<20));
         }
     }
-    sleep(25);
+    sleep(10);
     
     // multi source, multi dest
     printf("Multi source, multi dest test\n");

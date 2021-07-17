@@ -60,7 +60,7 @@ logic global_rst;
 // Reset synchronizer
 (* dont_touch = "true" *) logic pipe_rst_n;
 
-lib_pipe #(.WIDTH(1), .STAGES(3)) PIPE_RST_N (.clk(global_clk), .rst_n(1'b1), .in_bus(rst_main_n), .out_bus(pipe_rst_n));
+lib_pipe #(.WIDTH(1), .STAGES(8)) PIPE_RST_N (.clk(global_clk), .rst_n(1'b1), .in_bus(rst_main_n), .out_bus(pipe_rst_n));
 
 assign global_rst_n = pipe_rst_n;
 assign global_rst   = !pipe_rst_n;
@@ -82,11 +82,15 @@ assign global_rst   = !pipe_rst_n;
 
 // AXIL2SR to AmorphOS System
 SoftRegReq  sys_softreg_req[3:0];
+SoftRegReq  sys_softreg_req_[3:0];
 SoftRegReq  sys_softreg_req_buf;
+SoftRegReq  sys_softreg_req_buf2;
 logic       sys_softreg_req_grant;
 
 SoftRegResp sys_softreg_resp[3:0];
+SoftRegResp sys_softreg_resp_[3:0];
 SoftRegResp sys_softreg_resp_buf;
+SoftRegResp sys_softreg_resp_buf2;
 logic       sys_softreg_resp_grant;
 
 AXIL2SR
@@ -125,13 +129,16 @@ axil2sr_inst_sys
 	
 	// Interface to SoftReg
 	// Requests
-	.softreg_req(sys_softreg_req_buf),
+	.softreg_req(sys_softreg_req_buf2),
 	.softreg_req_grant(sys_softreg_req_grant),
 	// Responses
-	.softreg_resp(sys_softreg_resp_buf),
+	.softreg_resp(sys_softreg_resp_buf2),
 	.softreg_resp_grant(sys_softreg_resp_grant)
 );
 assign sys_softreg_req_grant = 1;
+
+lib_pipe #(.WIDTH(98), .STAGES(2)) PIPE_SYS_SR_REQ  (.clk(global_clk), .rst_n(global_rst_n), .in_bus(sys_softreg_req_buf2), .out_bus(sys_softreg_req_buf));
+lib_pipe #(.WIDTH(65), .STAGES(2)) PIPE_SYS_SR_RESP (.clk(global_clk), .rst_n(global_rst_n), .in_bus(sys_softreg_resp_buf), .out_bus(sys_softreg_resp_buf2));
 
 AmorphOSSoftReg_RouteTree #(.SR_NUM_APPS(4))
 softreg_route_tree_inst_sys
@@ -144,9 +151,16 @@ softreg_route_tree_inst_sys
 	.softreg_req(sys_softreg_req_buf),
 	.softreg_resp(sys_softreg_resp_buf),
 	// Virtualized interface
-	.app_softreg_req(sys_softreg_req),
-	.app_softreg_resp(sys_softreg_resp)
+	.app_softreg_req(sys_softreg_req_),
+	.app_softreg_resp(sys_softreg_resp_)
 );
+
+generate
+	for (i = 0; i < 4; i = i + 1) begin : sys_sr_pipe
+		lib_pipe #(.WIDTH(98), .STAGES(2)) PIPE_SYS_SR_REQ_  (.clk(global_clk), .rst_n(global_rst_n), .in_bus(sys_softreg_req_[i]), .out_bus(sys_softreg_req[i]));
+		lib_pipe #(.WIDTH(65), .STAGES(2)) PIPE_SYS_SR_RESP_ (.clk(global_clk), .rst_n(global_rst_n), .in_bus(sys_softreg_resp[i]), .out_bus(sys_softreg_resp_[i]));
+	end
+endgenerate
 
 
 //------------------------------------
@@ -271,7 +285,7 @@ cl_dma_pcis_slv CL_DMA_PCIS_SLV (
 );
 
 // DDR Stats
-localparam NUM_CFG_STGS_CL_DDR_ATG = 4;
+localparam NUM_CFG_STGS_CL_DDR_ATG = 8;
 
 logic[7:0] sh_ddr_stat_addr_q[2:0];
 logic[2:0] sh_ddr_stat_wr_q;
@@ -549,11 +563,13 @@ endgenerate
 */
 
 // AXIL2SR to AmorphOS
-SoftRegReq  softreg_req_from_axil2sr;
-logic       softreg_req_grant_to_axil2sr;
+SoftRegReq  app_softreg_req_buf;
+SoftRegReq  app_softreg_req_buf2;
+logic       app_softreg_req_grant;
 
-SoftRegResp softreg_resp_to_axil2sr;
-logic       softreg_resp_grant_from_axil2sr;  
+SoftRegResp app_softreg_resp_buf;
+SoftRegResp app_softreg_resp_buf2;
+logic       app_softreg_resp_grant;
 
 generate
 	if (F1_AXIL_USE_EXTENDER == 1) begin : extender_axil2sr
@@ -593,11 +609,11 @@ generate
 
 			// Interface to SoftReg
 			// Requests
-			.softreg_req(softreg_req_from_axil2sr),
-			.softreg_req_grant(softreg_req_grant_to_axil2sr),
+			.softreg_req(app_softreg_req_buf2),
+			.softreg_req_grant(app_softreg_req_grant),
 			// Responses
-			.softreg_resp(softreg_resp_to_axil2sr),
-			.softreg_resp_grant(softreg_resp_grant_from_axil2sr)
+			.softreg_resp(app_softreg_resp_buf2),
+			.softreg_resp_grant(app_softreg_resp_grant)
 		);
 	end else begin : normal_axil2sr
 		AXIL2SR
@@ -636,18 +652,24 @@ generate
 
 			// Interface to SoftReg
 			// Requests
-			.softreg_req(softreg_req_from_axil2sr),
-			.softreg_req_grant(softreg_req_grant_to_axil2sr),
+			.softreg_req(app_softreg_req_buf2),
+			.softreg_req_grant(app_softreg_req_grant),
 			// Responses
-			.softreg_resp(softreg_resp_to_axil2sr),
-			.softreg_resp_grant(softreg_resp_grant_from_axil2sr)
+			.softreg_resp(app_softreg_resp_buf2),
+			.softreg_resp_grant(app_softreg_resp_grant)
 		);
 	end
 endgenerate
 
+// App SoftReg buffering
+lib_pipe #(.WIDTH(98), .STAGES(4)) PIPE_APP_SR_REQ  (.clk(global_clk), .rst_n(global_rst_n), .in_bus(app_softreg_req_buf2), .out_bus(app_softreg_req_buf));
+lib_pipe #(.WIDTH(65), .STAGES(4)) PIPE_APP_SR_RESP (.clk(global_clk), .rst_n(global_rst_n), .in_bus(app_softreg_resp_buf), .out_bus(app_softreg_resp_buf2));
+
 // AmorphOS to apps
 SoftRegReq                   app_softreg_req[F1_NUM_APPS-1:0];
+SoftRegReq                   app_softreg_req_[F1_NUM_APPS-1:0];
 SoftRegResp                  app_softreg_resp[F1_NUM_APPS-1:0];		
+SoftRegResp                  app_softreg_resp_[F1_NUM_APPS-1:0];		
 
 // MemDrive connectors
 AMIRequest                   md_mem_reqs        [1:0];
@@ -676,11 +698,11 @@ generate
 				.rst(global_rst), 
 				.app_enable(app_enable),
 				// Interface to Host
-				.softreg_req(softreg_req_from_axil2sr),
-				.softreg_resp(softreg_resp_to_axil2sr),
+				.softreg_req(app_softreg_req_buf),
+				.softreg_resp(app_softreg_resp_buf),
 				// Virtualized interface each app
-				.app_softreg_req(app_softreg_req),
-				.app_softreg_resp(app_softreg_resp)
+				.app_softreg_req(app_softreg_req_),
+				.app_softreg_resp(app_softreg_resp_)
 			);
 		end else begin : sr_with_tree
 			AmorphOSSoftReg_RouteTree #(.SR_NUM_APPS(F1_NUM_APPS)) amorphos_softreg_inst_route_tree
@@ -690,15 +712,15 @@ generate
 				.rst(global_rst), 
 				.app_enable(app_enable),
 				// Interface to Host
-				.softreg_req(softreg_req_from_axil2sr),
-				.softreg_resp(softreg_resp_to_axil2sr),
+				.softreg_req(app_softreg_req_buf),
+				.softreg_resp(app_softreg_resp_buf),
 				// Virtualized interface each app
-				.app_softreg_req(app_softreg_req),
-				.app_softreg_resp(app_softreg_resp)
+				.app_softreg_req(app_softreg_req_),
+				.app_softreg_resp(app_softreg_resp_)
 			);
 		end
 		// has to accept it, SW makes sure it isn't swamped
-		assign softreg_req_grant_to_axil2sr    = softreg_req_from_axil2sr.valid;
+		assign app_softreg_req_grant = app_softreg_req_buf2.valid;
 	end // end else
 
 endgenerate
@@ -724,6 +746,11 @@ logic                        ami2_ami2axi4_resp_grant_out [F1_NUM_MEM_CHANNELS-1
 
 generate
 	for (app_num = 0; app_num < F1_NUM_APPS; app_num = app_num + 1) begin : multi_inst
+		// Buffer app SoftReg
+		lib_pipe #(.WIDTH(98), .STAGES(3)) PIPE_APP_SR_REQ_  (.clk(global_clk), .rst_n(global_rst_n), .in_bus(app_softreg_req_[app_num]), .out_bus(app_softreg_req[app_num]));
+		lib_pipe #(.WIDTH(65), .STAGES(3)) PIPE_APP_SR_RESP_ (.clk(global_clk), .rst_n(global_rst_n), .in_bus(app_softreg_resp[app_num]), .out_bus(app_softreg_resp_[app_num]));
+		
+		// Instantiate app
 		if (F1_CONFIG_APPS == 1) begin : multi_memdrive
 		end else if (F1_CONFIG_APPS == 2) begin : multi_dnnweaver
 		end else if (F1_CONFIG_APPS == 3) begin : multi_bitcoin

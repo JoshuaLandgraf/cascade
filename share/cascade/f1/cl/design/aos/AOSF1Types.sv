@@ -54,19 +54,19 @@ parameter F1_AXIL_USE_EXTENDER = 0;
 parameter F1_AXIL_USE_ROUTE_TREE = 1;
 // Write addresses coming from the F1 Shell
 parameter F1_AXIL_wr_addr_FIFO_Type  = 0;
-parameter F1_AXIL_wr_addr_FIFO_Depth = 2;
+parameter F1_AXIL_wr_addr_FIFO_Depth = 1;
 // Write data coming from the F1 Shell
 parameter F1_AXIL_wr_data_FIFO_Type  = 0;
-parameter F1_AXIL_wr_data_FIFO_Depth = 2;
+parameter F1_AXIL_wr_data_FIFO_Depth = 1;
 // Read requests coming from the F1 Shell
 parameter F1_AXIL_rd_req_FIFO_Type   = 0;
-parameter F1_AXIL_rd_req_FIFO_Depth  = 2;
+parameter F1_AXIL_rd_req_FIFO_Depth  = 1;
 // Read response data from AOS
 parameter F1_AXIL_rd_resp_FIFO_Type  = 0;
-parameter F1_AXIL_rd_resp_FIFO_Depth = 2;
+parameter F1_AXIL_rd_resp_FIFO_Depth = 1;
 // Buffer output of the AXIL2SR module
 parameter F1_AXIL_buffer_sr_req_FIFO_Type = 0;
-parameter F1_AXIL_buffer_sr_req_FIFO_Depth = 2;
+parameter F1_AXIL_buffer_sr_req_FIFO_Depth = 1;
 
 // Interface to memory via AXI-4
 

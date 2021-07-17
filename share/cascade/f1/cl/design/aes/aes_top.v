@@ -131,7 +131,7 @@ aes_256 aes3 (
 	.out(aes_out[511:384])
 );
 HullFIFO #(
-	.TYPE(3),
+	.TYPE(0),
 	.WIDTH(512),
 	.LOG_DEPTH(5)
 ) aes_fifo (
@@ -150,7 +150,7 @@ HullFIFO #(
 // state and signals
 reg [63:0] id_addr;
 reg [63:0] id_words;
-reg [8:0] id_credits;
+reg [4:0] id_credits;
 wire id_consume;
 
 // FIFO signals
@@ -161,6 +161,7 @@ wire idf_rdreq;
 wire [511:0] idf_dout;
 wire idf_empty;
 assign rready_m = !idf_full;
+assign id_consume = rvalid_m && rready_m && rlast_m;
 
 // logic
 reg [6:0] id_len_addr;
@@ -171,7 +172,7 @@ always @(*) begin
 	araddr_m = id_addr;
 	//arlen_m = 0;
 	arsize_m = 3'b110;
-	arvalid_m = id_words && (id_credits >= 64);
+	arvalid_m = id_words && id_credits;
 	
 	id_len_addr = 7'd64 - id_addr[5:0];
 	id_len_words = (id_words < id_len_addr) ? id_words : id_len_addr;
@@ -183,19 +184,26 @@ always @(posedge clk) begin
 	if (rst) begin
 		id_addr <= 0;
 		id_words <= 0;
-		id_credits <= 511;
+		id_credits <= 8;
 	end else begin
 		if (arvalid_m && arready_m) begin
 			id_addr <= id_addr + (id_len << 6);
 			id_words <= id_words - id_len;
-			id_credits <= id_credits - id_len + id_consume;
+		end
+		if ((arvalid_m && arready_m) && id_consume) begin
+			// Do nothing
+		end else if (arvalid_m && arready_m) begin
+			id_credits <= id_credits - 1;
+		end else if (id_consume) begin
+			id_credits <= id_credits + 1;
 		end else begin
-			id_credits <= id_credits + id_consume;
+			// Do nothing
 		end
 		if (softreg_req_valid && softreg_req_isWrite) begin
 			case (softreg_req_addr)
 				32'h20: id_addr <= softreg_req_data;
 				32'h30: id_words <= softreg_req_data;
+				32'h38: id_credits <= softreg_req_data;
 			endcase
 		end
 	end
@@ -203,9 +211,9 @@ end
 
 // instantiations
 HullFIFO #(
-	.TYPE(3),
+	.TYPE(0),
 	.WIDTH(512),
-	.LOG_DEPTH(9)
+	.LOG_DEPTH(2)
 ) input_data_fifo (
 	.clock(clk),
 	.reset_n(~rst),
@@ -222,6 +230,7 @@ HullFIFO #(
 // state and signals
 reg [63:0] om_addr;
 reg [63:0] om_words;
+reg [3:0]  om_credit;
 
 // logic
 reg [6:0] om_len_addr;
@@ -232,7 +241,7 @@ always @(*) begin
 	awaddr_m = om_addr;
 	//awlen_m = 0;
 	awsize_m = 3'b110;
-	awvalid_m = (om_words > 0);
+	awvalid_m = om_words && om_credit;
 	
 	om_len_addr = 7'd64 - om_addr[5:0];
 	om_len_words = (om_words < om_len_addr) ? om_words : om_len_addr;
@@ -244,15 +253,26 @@ always @(posedge clk) begin
 	if (rst) begin
 		om_addr <= 0;
 		om_words <= 0;
+		om_credit <= 8;
 	end else begin
 		if (awvalid_m && awready_m) begin
 			om_addr <= om_addr + (om_len << 6);
 			om_words <= om_words - om_len;
 		end
+		if (bvalid_m && (awvalid_m && awready_m)) begin
+			// Do nothing
+		end else if (bvalid_m) begin
+			om_credit <= om_credit + 1;
+		end else if (awvalid_m && awready_m) begin
+			om_credit <= om_credit - 1;
+		end else begin
+			// Do nothing
+		end
 		if (softreg_req_valid && softreg_req_isWrite) begin
 			case (softreg_req_addr)
 				32'h28: om_addr <= softreg_req_data;
 				32'h30: om_words <= softreg_req_data;
+				32'h40: om_credit <= softreg_req_data;
 			endcase
 		end
 	end
@@ -275,7 +295,6 @@ wire odf_empty;
 // misc signals
 wire od_intake = !aef_empty && !idf_empty && !odf_full;
 assign aes_consume = od_intake;
-assign id_consume = od_intake;
 assign aef_rdreq = !idf_empty && !odf_full;
 assign idf_rdreq = !aef_empty && !odf_full;
 
@@ -309,7 +328,7 @@ end
 HullFIFO #(
 	.TYPE(3),
 	.WIDTH(512),
-	.LOG_DEPTH(6)
+	.LOG_DEPTH(9)
 ) output_data_fifo (
 	.clock(clk),
 	.reset_n(~rst),

@@ -76,9 +76,9 @@ assign pnf_rdreq = tlb_s.req_ready;
 
 // FIFO instantiations
 HullFIFO #(
-	.TYPE(3),
+	.TYPE(0),
 	.WIDTH(39),
-	.LOG_DEPTH(FIFO_LD)
+	.LOG_DEPTH(1)
 ) ar_metadata_fifo (
 	.clock(clk),
 	.reset_n(~rst),
@@ -90,9 +90,9 @@ HullFIFO #(
 	.rdreq(amf_rdreq)
 );
 HullFIFO #(
-	.TYPE(3),
+	.TYPE(0),
 	.WIDTH(52),
-	.LOG_DEPTH(FIFO_LD)
+	.LOG_DEPTH(1)
 ) pg_num_fifo (
 	.clock(clk),
 	.reset_n(~rst),
@@ -123,9 +123,9 @@ assign tlb_s.resp_ready = !paf_full;
 
 // FIFO instantiation
 HullFIFO #(
-	.TYPE(3),
+	.TYPE(0),
 	.WIDTH(53),
-	.LOG_DEPTH(FIFO_LD)
+	.LOG_DEPTH(1)
 ) phys_addr_fifo (
 	.clock(clk),
 	.reset_n(~rst),
@@ -160,9 +160,9 @@ assign omf_data = {amf_q[38:23], paf_q[0]};
 
 // output metadata FIFO instantiation
 HullFIFO #(
-	.TYPE(3),
+	.TYPE(0),
 	.WIDTH(17),
-	.LOG_DEPTH(FIFO_LD)
+	.LOG_DEPTH(1)
 ) output_metadata_fifo (
 	.clock(clk),
 	.reset_n(~rst),
@@ -200,7 +200,7 @@ assign rvalid_m = !omf_empty && (omf_q[0] ? !rrf_empty : 1'b1);
 HullFIFO #(
 	.TYPE(3),
 	.WIDTH(515),
-	.LOG_DEPTH(4)
+	.LOG_DEPTH(9)
 ) read_return_fifo (
 	.clock(clk),
 	.reset_n(~rst),
@@ -278,9 +278,9 @@ assign pnf_rdreq = tlb_s.req_ready;
 
 // FIFO instantiations
 HullFIFO #(
-	.TYPE(3),
+	.TYPE(0),
 	.WIDTH(39),
-	.LOG_DEPTH(FIFO_LD)
+	.LOG_DEPTH(1)
 ) aw_metadata_fifo (
 	.clock(clk),
 	.reset_n(~rst),
@@ -292,9 +292,9 @@ HullFIFO #(
 	.rdreq(amf_rdreq)
 );
 HullFIFO #(
-	.TYPE(3),
+	.TYPE(0),
 	.WIDTH(52),
-	.LOG_DEPTH(FIFO_LD)
+	.LOG_DEPTH(1)
 ) pg_num_fifo (
 	.clock(clk),
 	.reset_n(~rst),
@@ -325,9 +325,9 @@ assign tlb_s.resp_ready = !paf_full;
 
 // FIFO instantiation
 HullFIFO #(
-	.TYPE(3),
+	.TYPE(0),
 	.WIDTH(53),
-	.LOG_DEPTH(FIFO_LD)
+	.LOG_DEPTH(1)
 ) phys_addr_fifo (
 	.clock(clk),
 	.reset_n(~rst),
@@ -339,6 +339,44 @@ HullFIFO #(
 	.rdreq(paf_rdreq)
 );
 
+//// Write system throttling
+reg [7:0] wlast_credits;
+reg [7:0] waddr_credits;
+wire wa_tx_avail = (wlast_credits > 0);
+//wire wd_tx_avail = (waddr_credits > 0);
+wire wd_tx_avail = 1;
+wire wlast_accept;
+wire waddr_send;
+wire wlast_send;
+
+// logic
+always_ff @(posedge clk) begin
+	if (rst) begin
+		wlast_credits <= 0;
+		waddr_credits <= 0;
+	end else begin
+		if (wlast_accept && waddr_send) begin
+			wlast_credits <= wlast_credits;
+		end else if (wlast_accept) begin
+			wlast_credits <= wlast_credits + 1;
+		end else if (waddr_send) begin
+			wlast_credits <= wlast_credits - 1;
+		end else begin
+			wlast_credits <= wlast_credits;
+		end
+
+		if (waddr_send && wlast_send) begin
+			waddr_credits <= waddr_credits;
+		end else if (waddr_send) begin
+			waddr_credits <= waddr_credits + 1;
+		end else if (wlast_send) begin
+			waddr_credits <= waddr_credits - 1;
+		end else begin
+			waddr_credits <= waddr_credits;
+		end
+	end
+end
+
 //// Forward AXI writes if translation ok
 // input metadata FIFO signals
 wire imf_wrreq;
@@ -349,22 +387,21 @@ wire imf_empty;
 wire imf_rdreq;
 
 // assigns
-// TODO: add support for re-ordering
 assign {phys_write_s.awid, phys_write_s.awlen, phys_write_s.awsize} = {16'h00, amf_q[22:12]};
 assign phys_write_s.awaddr = {paf_q[52:1], amf_q[11:0]};
-assign phys_write_s.awvalid = !imf_full && !amf_empty && !paf_empty && paf_q[0];
-assign amf_rdreq = !imf_full && !paf_empty && (paf_q[0] ? phys_write_s.awready : 1'b1);
-assign paf_rdreq = !imf_full && !amf_empty && (paf_q[0] ? phys_write_s.awready : 1'b1);
-
-assign imf_wrreq = !amf_empty && !paf_empty && (paf_q[0] ? phys_write_s.awready : 1'b1);
+assign phys_write_s.awvalid = !imf_full && !amf_empty && !paf_empty && paf_q[0] && wa_tx_avail;
+assign waddr_send = !imf_full && !amf_empty && !paf_empty && (paf_q[0] ? phys_write_s.awready : 1'b1) && wa_tx_avail;
+assign amf_rdreq = !imf_full && !paf_empty && (paf_q[0] ? phys_write_s.awready : 1'b1) && wa_tx_avail;
+assign paf_rdreq = !imf_full && !amf_empty && (paf_q[0] ? phys_write_s.awready : 1'b1) && wa_tx_avail;
+assign imf_wrreq = !amf_empty && !paf_empty && (paf_q[0] ? phys_write_s.awready : 1'b1) && wa_tx_avail;
 assign imf_data = {amf_q[38:23], paf_q[0]};
 //assign imf_rdreq = TODO; // will assign later
 
 // input metadata FIFO instantiation
 HullFIFO #(
-	.TYPE(3),
+	.TYPE(0),
 	.WIDTH(17),
-	.LOG_DEPTH(FIFO_LD)
+	.LOG_DEPTH(1)
 ) input_metadata_fifo (
 	.clock(clk),
 	.reset_n(~rst),
@@ -394,20 +431,20 @@ wire rmf_empty;
 wire rmf_rdreq;
 
 // assigns
-//TODO: add support for reordering
+assign wready_m = !wdf_full;
+assign wdf_wrreq = wvalid_m;
+assign wdf_data = {wid_m, wdata_m, wstrb_m, wlast_m};
+assign wlast_accept = wlast_m && wvalid_m && !wdf_full;
+
 assign phys_write_s.wid = 16'h00;
 assign phys_write_s.wdata = wdf_q[576:65];
 assign phys_write_s.wstrb = wdf_q[64:1];
 assign phys_write_s.wlast = wdf_q[0];
-assign phys_write_s.wvalid = !rmf_full && !wdf_empty && !imf_empty && imf_q[0];
-
-assign wready_m = !wdf_full;
-assign wdf_wrreq = wvalid_m;
-assign wdf_data = {wid_m, wdata_m, wstrb_m, wlast_m};
-assign wdf_rdreq = !rmf_full && !imf_empty && (imf_q[0] ? phys_write_s.wready : 1'b1);
-assign imf_rdreq = !rmf_full && !wdf_empty && (imf_q[0] ? phys_write_s.wready : 1'b1) && wdf_q[0];
-
-assign rmf_wrreq = !imf_empty && !wdf_empty && (imf_q[0] ? phys_write_s.wready : 1'b1) && wdf_q[0];
+assign phys_write_s.wvalid = !rmf_full && !wdf_empty && !imf_empty && imf_q[0] && wd_tx_avail;
+assign wlast_send = !rmf_full && !wdf_empty && !imf_empty && (imf_q[0] ? phys_write_s.wready : 1'b1) && wd_tx_avail && wdf_q[0];
+assign wdf_rdreq = !rmf_full && !imf_empty && (imf_q[0] ? phys_write_s.wready : 1'b1) && wd_tx_avail;
+assign imf_rdreq = !rmf_full && !wdf_empty && (imf_q[0] ? phys_write_s.wready : 1'b1) && wd_tx_avail && wdf_q[0];
+assign rmf_wrreq = !imf_empty && !wdf_empty && (imf_q[0] ? phys_write_s.wready : 1'b1) && wd_tx_avail && wdf_q[0];
 assign rmf_data = imf_q;
 //assign rmf_rdreq = TODO; // will assign later
 
@@ -415,7 +452,7 @@ assign rmf_data = imf_q;
 HullFIFO #(
 	.TYPE(3),
 	.WIDTH(593),
-	.LOG_DEPTH(4)
+	.LOG_DEPTH(9)
 ) write_data_fifo (
 	.clock(clk),
 	.reset_n(~rst),
@@ -427,9 +464,9 @@ HullFIFO #(
 	.rdreq(wdf_rdreq)
 );
 HullFIFO #(
-	.TYPE(3),
+	.TYPE(0),
 	.WIDTH(17),
-	.LOG_DEPTH(FIFO_LD)
+	.LOG_DEPTH(1)
 ) response_metadata_fifo (
 	.clock(clk),
 	.reset_n(~rst),
@@ -463,9 +500,9 @@ assign bvalid_m = !rmf_empty && (rmf_q[0] ? !rdf_empty : 1'b1);
 
 // response data FIFO instantiation
 HullFIFO #(
-	.TYPE(3),
+	.TYPE(0),
 	.WIDTH(18),
-	.LOG_DEPTH(4)
+	.LOG_DEPTH(1)
 ) response_data_fifo (
 	.clock(clk),
 	.reset_n(~rst),
@@ -623,9 +660,9 @@ assign ptaf_wrreq = in_valid && !vpnf_full;
 
 // FIFO instantiations
 HullFIFO #(
-	.TYPE(3),
+	.TYPE(0),
 	.WIDTH(53),
-	.LOG_DEPTH(FIFO_LD)
+	.LOG_DEPTH(1)
 ) vpn_fifo (
 	.clock(clk),
 	.reset_n(~rst),
@@ -637,9 +674,9 @@ HullFIFO #(
 	.rdreq(vpnf_rdreq)
 );
 HullFIFO #(
-	.TYPE(3),
+	.TYPE(0),
 	.WIDTH(64),
-	.LOG_DEPTH(FIFO_LD)
+	.LOG_DEPTH(1)
 ) pte_addr_fifo (
 	.clock(clk),
 	.reset_n(~rst),
@@ -676,9 +713,9 @@ assign phys_tlb_s.rready = !ptef_full;
 
 // PTE FIFO instantiation
 HullFIFO #(
-    .TYPE(3),
+    .TYPE(0),
     .WIDTH(512),
-    .LOG_DEPTH(4)
+    .LOG_DEPTH(1)
 ) pte_fifo (
     .clock(clk),
     .reset_n(~rst),
@@ -756,9 +793,9 @@ assign hrqf_wrreq = !ptef_empty && !vpnf_empty && !ppf_full && !resp_found_out;
 
 // FIFO instantiations
 HullFIFO #(
-    .TYPE(3),
+    .TYPE(0),
     .WIDTH(55),
-    .LOG_DEPTH(4)
+    .LOG_DEPTH(1)
 ) proc_pte_fifo (
     .clock(clk),
     .reset_n(~rst),
@@ -770,9 +807,9 @@ HullFIFO #(
     .rdreq(ppf_rdreq)
 );
 HullFIFO #(
-    .TYPE(3),
+    .TYPE(0),
     .WIDTH(53),
-    .LOG_DEPTH(4)
+    .LOG_DEPTH(1)
 ) host_req_fifo (
     .clock(clk),
     .reset_n(~rst),
@@ -794,9 +831,9 @@ wire hrpf_empty;
 wire hrpf_rdreq;
 
 // assigns
-assign sr_resp.data = {10'h000, hrqf_q, !hrqf_empty};
+assign sr_resp.data = {10'h000, hrqf_q, !hrqf_empty && !hrpf_full};
 assign sr_resp.valid = sr_req.valid && !sr_req.isWrite;
-assign hrqf_rdreq = sr_req.valid && !sr_req.isWrite;
+assign hrqf_rdreq = sr_req.valid && !sr_req.isWrite && !hrpf_full;
 
 assign hrpf_data = sr_req.data[52:0];
 assign hrpf_wrreq = sr_req.valid && sr_req.isWrite;
@@ -806,7 +843,7 @@ assign hrpf_wrreq = sr_req.valid && sr_req.isWrite;
 HullFIFO #(
     .TYPE(3),
     .WIDTH(53),
-    .LOG_DEPTH(4)
+    .LOG_DEPTH(6)
 ) host_resp_fifo (
     .clock(clk),
     .reset_n(~rst),

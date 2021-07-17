@@ -111,31 +111,40 @@ set_msg_config -string {AXI_QUAD_SPI} -suppress
 # may comment them out if they wish to see more information from warning
 # messages.
 set_msg_config -id {Common 17-55}        -suppress
-set_msg_config -id {Vivado 12-4739}      -suppress
-set_msg_config -id {Constraints 18-4866} -suppress
+set_msg_config -id {Designutils 20-1567} -suppress
 set_msg_config -id {IP_Flow 19-2162}     -suppress
+set_msg_config -id {Project 1-498}       -suppress
 set_msg_config -id {Route 35-328}        -suppress
-set_msg_config -id {Vivado 12-1008}      -suppress
 set_msg_config -id {Vivado 12-508}       -suppress
+set_msg_config -id {Constraints 18-4866} -suppress
 set_msg_config -id {filemgmt 56-12}      -suppress
+set_msg_config -id {Constraints 18-4644} -suppress
+set_msg_config -id {Coretcl 2-64}        -suppress
+set_msg_config -id {Vivado 12-4739}      -suppress
+set_msg_config -id {Vivado 12-5201}      -suppress
 set_msg_config -id {DRC CKLD-1}          -suppress
-set_msg_config -id {DRC CKLD-2}          -suppress
 set_msg_config -id {IP_Flow 19-2248}     -suppress
-set_msg_config -id {Vivado 12-1580}      -suppress
+#set_msg_config -id {Opt 31-155}          -suppress
+set_msg_config -id {Synth 8-115}         -suppress
+set_msg_config -id {Synth 8-3936}        -suppress
+set_msg_config -id {Vivado 12-1023}      -suppress
 set_msg_config -id {Constraints 18-550}  -suppress
 set_msg_config -id {Synth 8-3295}        -suppress
 set_msg_config -id {Synth 8-3321}        -suppress
 set_msg_config -id {Synth 8-3331}        -suppress
 set_msg_config -id {Synth 8-3332}        -suppress
-set_msg_config -id {Synth 8-6014}        -suppress
-set_msg_config -id {Timing 38-436}       -suppress
-set_msg_config -id {DRC REQP-1853}       -suppress
 set_msg_config -id {Synth 8-350}         -suppress
 set_msg_config -id {Synth 8-3848}        -suppress
 set_msg_config -id {Synth 8-3917}        -suppress
-set_msg_config -id {Opt 31-430}          -suppress
+set_msg_config -id {Synth 8-6014}        -suppress
+set_msg_config -id {Vivado 12-1580}      -suppress
+set_msg_config -id {Constraints 18-619}  -suppress
+set_msg_config -id {DRC CKLD-2}          -suppress
+set_msg_config -id {DRC REQP-1853}       -suppress
+set_msg_config -id {Timing 38-436}       -suppress
 
-puts "AWS FPGA: ([clock format [clock seconds] -format %T]) Calling the encrypt.tcl.";
+set_msg_config -severity "CRITICAL WARNING" -string "WRAPPER_INST/SH" -suppress
+set_msg_config -severity "WARNING"          -string "WRAPPER_INST/SH" -suppress
 
 # Check that an email address has been set, else unset notify_via_sns
 
@@ -181,6 +190,8 @@ switch $strategy {
         source $HDK_SHELL_DIR/build/scripts/strategy_DEFAULT.tcl
     }
 }
+
+puts "AWS FPGA: ([clock format [clock seconds] -format %T]) Calling the encrypt.tcl.";
 
 #Encrypt source code
 source encrypt.tcl

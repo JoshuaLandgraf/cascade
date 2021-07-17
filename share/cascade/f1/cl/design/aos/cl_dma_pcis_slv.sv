@@ -40,6 +40,7 @@ module cl_dma_pcis_slv
 // Internal signals
 //----------------------------
 axi_bus_t sh_cl_dma_pcis_q();
+axi_bus_t sh_cl_dma_pcis_q2();
 axi_bus_t cl_axi_mstr_bus_1_q();
 axi_bus_t cl_axi_mstr_bus_2_q();
 axi_bus_t cl_axi_mstr_bus_3_q();
@@ -60,7 +61,6 @@ axi_bus_t lcl_cl_sh_ddrb_q2();
 axi_bus_t lcl_cl_sh_ddrd_q2();
 axi_bus_t cl_sh_ddr_q();
 axi_bus_t cl_sh_ddr_q2();
-axi_bus_t sh_cl_pcis();
 
 //----------------------------
 // End Internal signals
@@ -79,10 +79,11 @@ lib_pipe #(.WIDTH(1), .STAGES(4)) SLR2_PIPE_RST_N (.clk(aclk), .rst_n(1'b1), .in
 
 //----------------------------
 // flop the dma_pcis interface input of CL
+// back to back for SLR crossing
 //----------------------------
 
 // AXI4 Register Slice for dma_pcis interface
-axi_register_slice PCI_AXL_REG_SLC_1 (
+src_register_slice PCI_AXL_REG_SLC_1 (
     .aclk          (aclk),
     .aresetn       (aresetn),
     .s_axi_awid    (sh_cl_dma_pcis_bus.awid),
@@ -142,11 +143,71 @@ axi_register_slice PCI_AXL_REG_SLC_1 (
     .m_axi_rready  (sh_cl_dma_pcis_q.rready)
 );
 
+dest_register_slice PCI_AXL_REG_SLC_2 (
+    .aclk          (aclk),
+    .aresetn       (aresetn),
+    .s_axi_awid    (sh_cl_dma_pcis_q.awid),
+    .s_axi_awaddr  (sh_cl_dma_pcis_q.awaddr),
+    .s_axi_awlen   (sh_cl_dma_pcis_q.awlen),
+    .s_axi_awvalid (sh_cl_dma_pcis_q.awvalid),
+    .s_axi_awsize  (sh_cl_dma_pcis_q.awsize),
+    .s_axi_awready (sh_cl_dma_pcis_q.awready),
+    .s_axi_wdata   (sh_cl_dma_pcis_q.wdata),
+    .s_axi_wstrb   (sh_cl_dma_pcis_q.wstrb),
+    .s_axi_wlast   (sh_cl_dma_pcis_q.wlast),
+    .s_axi_wvalid  (sh_cl_dma_pcis_q.wvalid),
+    .s_axi_wready  (sh_cl_dma_pcis_q.wready),
+    .s_axi_bid     (sh_cl_dma_pcis_q.bid),
+    .s_axi_bresp   (sh_cl_dma_pcis_q.bresp),
+    .s_axi_bvalid  (sh_cl_dma_pcis_q.bvalid),
+    .s_axi_bready  (sh_cl_dma_pcis_q.bready),
+    .s_axi_arid    (sh_cl_dma_pcis_q.arid),
+    .s_axi_araddr  (sh_cl_dma_pcis_q.araddr),
+    .s_axi_arlen   (sh_cl_dma_pcis_q.arlen),
+    .s_axi_arvalid (sh_cl_dma_pcis_q.arvalid),
+    .s_axi_arsize  (sh_cl_dma_pcis_q.arsize),
+    .s_axi_arready (sh_cl_dma_pcis_q.arready),
+    .s_axi_rid     (sh_cl_dma_pcis_q.rid),
+    .s_axi_rdata   (sh_cl_dma_pcis_q.rdata),
+    .s_axi_rresp   (sh_cl_dma_pcis_q.rresp),
+    .s_axi_rlast   (sh_cl_dma_pcis_q.rlast),
+    .s_axi_rvalid  (sh_cl_dma_pcis_q.rvalid),
+    .s_axi_rready  (sh_cl_dma_pcis_q.rready),
+    
+    .m_axi_awid    (sh_cl_dma_pcis_q2.awid),
+    .m_axi_awaddr  (sh_cl_dma_pcis_q2.awaddr),
+    .m_axi_awlen   (sh_cl_dma_pcis_q2.awlen),
+    .m_axi_awvalid (sh_cl_dma_pcis_q2.awvalid),
+    .m_axi_awsize  (sh_cl_dma_pcis_q2.awsize),
+    .m_axi_awready (sh_cl_dma_pcis_q2.awready),
+    .m_axi_wdata   (sh_cl_dma_pcis_q2.wdata),
+    .m_axi_wstrb   (sh_cl_dma_pcis_q2.wstrb),
+    .m_axi_wvalid  (sh_cl_dma_pcis_q2.wvalid),
+    .m_axi_wlast   (sh_cl_dma_pcis_q2.wlast),
+    .m_axi_wready  (sh_cl_dma_pcis_q2.wready),
+    .m_axi_bresp   (sh_cl_dma_pcis_q2.bresp),
+    .m_axi_bvalid  (sh_cl_dma_pcis_q2.bvalid),
+    .m_axi_bid     (sh_cl_dma_pcis_q2.bid),
+    .m_axi_bready  (sh_cl_dma_pcis_q2.bready),
+    .m_axi_arid    (sh_cl_dma_pcis_q2.arid),
+    .m_axi_araddr  (sh_cl_dma_pcis_q2.araddr),
+    .m_axi_arlen   (sh_cl_dma_pcis_q2.arlen),
+    .m_axi_arsize  (sh_cl_dma_pcis_q2.arsize),
+    .m_axi_arvalid (sh_cl_dma_pcis_q2.arvalid),
+    .m_axi_arready (sh_cl_dma_pcis_q2.arready),
+    .m_axi_rid     (sh_cl_dma_pcis_q2.rid),
+    .m_axi_rdata   (sh_cl_dma_pcis_q2.rdata),
+    .m_axi_rresp   (sh_cl_dma_pcis_q2.rresp),
+    .m_axi_rlast   (sh_cl_dma_pcis_q2.rlast),
+    .m_axi_rvalid  (sh_cl_dma_pcis_q2.rvalid),
+    .m_axi_rready  (sh_cl_dma_pcis_q2.rready)
+);
+
 //-----------------------------------------------------
 // tie-off unused signals to prevent critical warnings
 //-----------------------------------------------------
-assign sh_cl_dma_pcis_q.rid[15:6] = 10'b0;
-assign sh_cl_dma_pcis_q.bid[15:6] = 10'b0;
+//assign sh_cl_dma_pcis_bus.rid[15:6] = 10'b0;
+//assign sh_cl_dma_pcis_bus.bid[15:6] = 10'b0;
 
 //----------------------------
 // flop the master interfaces input of CL
@@ -845,45 +906,45 @@ axi_tlb #(
     .M03_AXI_wstrb(lcl_cl_sh_ddrd_q.wstrb),
     .M03_AXI_wvalid(lcl_cl_sh_ddrd_q.wvalid),
 
-    .S00_AXI_araddr({sh_cl_dma_pcis_q.araddr[63:37], 1'b0, sh_cl_dma_pcis_q.araddr[35:0]}),
+    .S00_AXI_araddr({sh_cl_dma_pcis_q2.araddr[63:37], 1'b0, sh_cl_dma_pcis_q2.araddr[35:0]}),
     .S00_AXI_arburst(2'b1),
     .S00_AXI_arcache(4'b11),
-    .S00_AXI_arid(sh_cl_dma_pcis_q.arid[5:0]),
-    .S00_AXI_arlen(sh_cl_dma_pcis_q.arlen),
+    .S00_AXI_arid(sh_cl_dma_pcis_q2.arid[5:0]),
+    .S00_AXI_arlen(sh_cl_dma_pcis_q2.arlen),
     .S00_AXI_arlock(1'b0),
     .S00_AXI_arprot(3'b10),
     .S00_AXI_arqos(4'b0),
-    .S00_AXI_arready(sh_cl_dma_pcis_q.arready),
+    .S00_AXI_arready(sh_cl_dma_pcis_q2.arready),
     .S00_AXI_arregion(4'b0),
-    .S00_AXI_arsize(sh_cl_dma_pcis_q.arsize),
-    .S00_AXI_arvalid(sh_cl_dma_pcis_q.arvalid),
-    .S00_AXI_awaddr({sh_cl_dma_pcis_q.awaddr[63:37], 1'b0, sh_cl_dma_pcis_q.awaddr[35:0]}),
+    .S00_AXI_arsize(sh_cl_dma_pcis_q2.arsize),
+    .S00_AXI_arvalid(sh_cl_dma_pcis_q2.arvalid),
+    .S00_AXI_awaddr({sh_cl_dma_pcis_q2.awaddr[63:37], 1'b0, sh_cl_dma_pcis_q2.awaddr[35:0]}),
     .S00_AXI_awburst(2'b1),
     .S00_AXI_awcache(4'b11),
-    .S00_AXI_awid(sh_cl_dma_pcis_q.awid[5:0]),
-    .S00_AXI_awlen(sh_cl_dma_pcis_q.awlen),
+    .S00_AXI_awid(sh_cl_dma_pcis_q2.awid[5:0]),
+    .S00_AXI_awlen(sh_cl_dma_pcis_q2.awlen),
     .S00_AXI_awlock(1'b0),
     .S00_AXI_awprot(3'b10),
     .S00_AXI_awqos(4'b0),
-    .S00_AXI_awready(sh_cl_dma_pcis_q.awready),
+    .S00_AXI_awready(sh_cl_dma_pcis_q2.awready),
     .S00_AXI_awregion(4'b0),
-    .S00_AXI_awsize(sh_cl_dma_pcis_q.awsize),
-    .S00_AXI_awvalid(sh_cl_dma_pcis_q.awvalid),
-    .S00_AXI_bid(sh_cl_dma_pcis_q.bid[5:0]),
-    .S00_AXI_bready(sh_cl_dma_pcis_q.bready),
-    .S00_AXI_bresp(sh_cl_dma_pcis_q.bresp),
-    .S00_AXI_bvalid(sh_cl_dma_pcis_q.bvalid),
-    .S00_AXI_rdata(sh_cl_dma_pcis_q.rdata),
-    .S00_AXI_rid(sh_cl_dma_pcis_q.rid[5:0]),
-    .S00_AXI_rlast(sh_cl_dma_pcis_q.rlast),
-    .S00_AXI_rready(sh_cl_dma_pcis_q.rready),
-    .S00_AXI_rresp(sh_cl_dma_pcis_q.rresp),
-    .S00_AXI_rvalid(sh_cl_dma_pcis_q.rvalid),
-    .S00_AXI_wdata(sh_cl_dma_pcis_q.wdata),
-    .S00_AXI_wlast(sh_cl_dma_pcis_q.wlast),
-    .S00_AXI_wready(sh_cl_dma_pcis_q.wready),
-    .S00_AXI_wstrb(sh_cl_dma_pcis_q.wstrb),
-    .S00_AXI_wvalid(sh_cl_dma_pcis_q.wvalid),
+    .S00_AXI_awsize(sh_cl_dma_pcis_q2.awsize),
+    .S00_AXI_awvalid(sh_cl_dma_pcis_q2.awvalid),
+    .S00_AXI_bid(sh_cl_dma_pcis_q2.bid[5:0]),
+    .S00_AXI_bready(sh_cl_dma_pcis_q2.bready),
+    .S00_AXI_bresp(sh_cl_dma_pcis_q2.bresp),
+    .S00_AXI_bvalid(sh_cl_dma_pcis_q2.bvalid),
+    .S00_AXI_rdata(sh_cl_dma_pcis_q2.rdata),
+    .S00_AXI_rid(sh_cl_dma_pcis_q2.rid[5:0]),
+    .S00_AXI_rlast(sh_cl_dma_pcis_q2.rlast),
+    .S00_AXI_rready(sh_cl_dma_pcis_q2.rready),
+    .S00_AXI_rresp(sh_cl_dma_pcis_q2.rresp),
+    .S00_AXI_rvalid(sh_cl_dma_pcis_q2.rvalid),
+    .S00_AXI_wdata(sh_cl_dma_pcis_q2.wdata),
+    .S00_AXI_wlast(sh_cl_dma_pcis_q2.wlast),
+    .S00_AXI_wready(sh_cl_dma_pcis_q2.wready),
+    .S00_AXI_wstrb(sh_cl_dma_pcis_q2.wstrb),
+    .S00_AXI_wvalid(sh_cl_dma_pcis_q2.wvalid),
 
     .S01_AXI_araddr({cl_axi_mstr_bus_1_t.araddr}),
     .S01_AXI_arburst(2'b1),
