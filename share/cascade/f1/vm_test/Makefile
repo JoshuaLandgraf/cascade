@@ -13,7 +13,7 @@ LDLIBS = -lfpga_mgmt -lrt -pthread
 
 SRC = ${SDK_DIR}/userspace/utils/sh_dpi_tasks.c
 
-all: vm_test vmt_test dram_test aes_test
+all: vm_test vmt_test dram_test aes_test md5_test
 
 vm_test: vm_test.cpp
 	$(CC) $(CFLAGS) $(LDFLAGS) $(LDLIBS) $(SRC) vm_test.cpp -o vm_test
@@ -27,7 +27,10 @@ dram_test: dram_test.c
 aes_test: aes_test.c
 	$(CC) $(CFLAGS) $(LDFLAGS) $(LDLIBS) $(SRC) aes_test.c -o aes_test
 
+md5_test: md5_test.c
+	$(CC) $(CFLAGS) $(LDFLAGS) $(LDLIBS) $(SRC) md5_test.c -o md5_test
+
 clean:
-	rm -f vm_test vmt_test dram_test aes_test
+	rm -f vm_test vmt_test dram_test aes_test md5_test
 
 .PHONY: clean

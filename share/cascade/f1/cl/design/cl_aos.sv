@@ -896,6 +896,21 @@ generate
 				.softreg_req(app_softreg_req[app_num]),
 				.softreg_resp(app_softreg_resp[app_num])
 			);
+		end else if (F1_CONFIG_APPS == 7) begin : multi_md5
+			MD5Wrapper #(
+				.app_num(app_num)
+			) md5_inst (
+				// General signals
+				.clk(global_clk),
+				.rst(global_rst),
+				
+				// Virtual memory interface
+				.axi_m(cl_axi_mstr_bus[app_num]),
+				
+				// SoftReg control interface
+				.softreg_req(app_softreg_req[app_num]),
+				.softreg_resp(app_softreg_resp[app_num])
+			);
 		end
 	end
 endgenerate

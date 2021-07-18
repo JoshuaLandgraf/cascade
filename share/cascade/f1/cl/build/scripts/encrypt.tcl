@@ -108,6 +108,10 @@ file copy -force $CL_DIR/design/aes/aes_top.v $TARGET_DIR
 file copy -force $CL_DIR/design/aes/aes_256.v $TARGET_DIR
 file copy -force $CL_DIR/design/aes/round.v $TARGET_DIR
 file copy -force $CL_DIR/design/aes/table.v $TARGET_DIR
+#MD5
+file copy -force $CL_DIR/design/md5/md5_wrapper.sv $TARGET_DIR
+file copy -force $CL_DIR/design/md5/md5_top.v $TARGET_DIR
+file copy -force $CL_DIR/design/md5/Md5Core.v $TARGET_DIR
 # Top level module
 file copy -force $CL_DIR/design/cl_aos.sv                      $TARGET_DIR
 
